@@ -1,0 +1,117 @@
+{
+  "model_inference": {
+    "LightGBM": {
+      "single_sample": {
+        "median_ms": 0.934,
+        "p50_ms": 0.934,
+        "p95_ms": 1.5,
+        "p99_ms": 1.928,
+        "mean_ms": 0.988,
+        "std_ms": 0.261,
+        "min_ms": 0.641,
+        "max_ms": 2.294
+      },
+      "batch": {
+        "1": {
+          "total_ms": 1.006,
+          "per_sample_ms": 1.006,
+          "throughput_per_sec": 994.0
+        },
+        "10": {
+          "total_ms": 1.223,
+          "per_sample_ms": 0.122,
+          "throughput_per_sec": 8176.0
+        },
+        "50": {
+          "total_ms": 1.412,
+          "per_sample_ms": 0.028,
+          "throughput_per_sec": 35415.0
+        },
+        "100": {
+          "total_ms": 1.775,
+          "per_sample_ms": 0.018,
+          "throughput_per_sec": 56348.0
+        },
+        "200": {
+          "total_ms": 2.434,
+          "per_sample_ms": 0.012,
+          "throughput_per_sec": 82179.0
+        },
+        "500": {
+          "total_ms": 3.667,
+          "per_sample_ms": 0.007,
+          "throughput_per_sec": 136362.0
+        },
+        "1000": {
+          "total_ms": 6.285,
+          "per_sample_ms": 0.006,
+          "throughput_per_sec": 159110.0
+        }
+      }
+    },
+    "XGBoost": {
+      "single_sample": {
+        "median_ms": 0.506,
+        "p50_ms": 0.506,
+        "p95_ms": 0.756,
+        "p99_ms": 1.052,
+        "mean_ms": 0.532,
+        "std_ms": 0.138,
+        "min_ms": 0.253,
+        "max_ms": 1.614
+      },
+      "batch": {
+        "1": {
+          "total_ms": 0.427,
+          "per_sample_ms": 0.427,
+          "throughput_per_sec": 2341.0
+        },
+        "10": {
+          "total_ms": 0.585,
+          "per_sample_ms": 0.058,
+          "throughput_per_sec": 17100.0
+        },
+        "50": {
+          "total_ms": 0.911,
+          "per_sample_ms": 0.018,
+          "throughput_per_sec": 54879.0
+        },
+        "100": {
+          "total_ms": 1.167,
+          "per_sample_ms": 0.012,
+          "throughput_per_sec": 85664.0
+        },
+        "200": {
+          "total_ms": 1.445,
+          "per_sample_ms": 0.007,
+          "throughput_per_sec": 138360.0
+        },
+        "500": {
+          "total_ms": 1.406,
+          "per_sample_ms": 0.003,
+          "throughput_per_sec": 355543.0
+        },
+        "1000": {
+          "total_ms": 2.063,
+          "per_sample_ms": 0.002,
+          "throughput_per_sec": 484625.0
+        }
+      }
+    }
+  },
+  "shap": {
+    "cold_init_ms": 270.546,
+    "single_explanation": {
+      "median_ms": 3.338,
+      "p95_ms": 3.726,
+      "mean_ms": 3.445
+    },
+    "batch_10": {
+      "median_ms": 3.759,
+      "per_sample_ms": 0.376
+    }
+  },
+  "api": {
+    "error": "requests not installed"
+  }
+}
