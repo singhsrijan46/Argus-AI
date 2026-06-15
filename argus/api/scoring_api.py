@@ -22,6 +22,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
+import math
 
 import numpy as np
 import pandas as pd
@@ -61,6 +62,28 @@ app.add_middleware(
 # ─── Global state ───
 models = {}
 data = {}
+
+
+def _sanitize(obj):
+    """Recursively convert numpy/pandas types to JSON-safe Python natives."""
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v) for v in obj]
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        v = float(obj)
+        return 0.0 if math.isnan(v) or math.isinf(v) else v
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):
+        return [_sanitize(v) for v in obj.tolist()]
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return 0.0
+    if pd.isna(obj):
+        return None
+    return obj
 
 
 def _get_feature_cols():
@@ -271,14 +294,14 @@ async def get_employee(emp_id: str):
         if not emp_drift.empty:
             drift_history = emp_drift.to_dict(orient="records")
 
-    return {
+    return _sanitize({
         "employee": emp_info,
         "trust_score": float(scores.iloc[0]["trust_score"]) if not scores.empty else 95.0,
         "risk_score": float(scores.iloc[0]["risk_score"]) if not scores.empty else 5.0,
         "twin_comparison": twin_comparison,
         "trust_timeline": timeline,
         "drift_history": drift_history,
-    }
+    })
 
 
 @app.get("/api/alerts")
