@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
-import { employees, getTrustColor, trustScoreHistory, type Employee } from '@/lib/mockData';
+import { employees as mockEmployees, getTrustColor, trustScoreHistory, type Employee } from '@/lib/mockData';
+import { useEmployees, useApiStatus } from '@/lib/hooks';
 import { Search, Filter, ChevronRight, ArrowUpDown } from 'lucide-react';
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -27,7 +28,33 @@ export default function EmployeesPage() {
   const [sortKey, setSortKey] = useState<SortKey>('trustScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const departments = useMemo(() => ['all', ...new Set(employees.map(e => e.department))], []);
+  const { live: apiLive } = useApiStatus();
+  const { data: liveEmployees } = useEmployees('trust_score', 'asc');
+
+  // Map API employees to mock format, or fallback
+  const employees: Employee[] = useMemo(() => {
+    if (liveEmployees.length > 0) {
+      return liveEmployees.map((e, i) => ({
+        id: e.emp_id,
+        name: e.name || e.emp_id,
+        department: e.department || '',
+        role: e.role || '',
+        branch: e.branch || '',
+        clearanceLevel: e.clearance_level || 1,
+        tenureMonths: 0,
+        trustScore: Math.round(e.trust_score ?? 95),
+        previousTrustScore: Math.round((e.trust_score ?? 95) + 5),
+        trustLevel: (e.trust_score ?? 95) < 20 ? 'CRITICAL' as const : (e.trust_score ?? 95) < 40 ? 'HIGH_RISK' as const : (e.trust_score ?? 95) < 60 ? 'MEDIUM_RISK' as const : (e.trust_score ?? 95) < 80 ? 'LOW_RISK' as const : 'TRUSTED' as const,
+        avatarColor: ['#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#3b82f6','#14b8a6','#f97316','#6366f1'][i % 10],
+        isInsider: e.is_insider || false,
+        lastActive: 'Live',
+        twinDrift: e.twin_drift || 0,
+      }));
+    }
+    return mockEmployees;
+  }, [liveEmployees]);
+
+  const departments = useMemo(() => ['all', ...new Set(employees.map(e => e.department))], [employees]);
 
   const filtered = useMemo(() => {
     let result = [...employees];
@@ -53,7 +80,7 @@ export default function EmployeesPage() {
         : String(bVal).localeCompare(String(aVal));
     });
     return result;
-  }, [search, filter, sortKey, sortDir]);
+  }, [search, filter, sortKey, sortDir, employees]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {

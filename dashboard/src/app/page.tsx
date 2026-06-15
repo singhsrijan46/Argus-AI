@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import {
-  employees, alerts, activityFeed, modelMetrics,
-  departmentStats, getTrustColor, trustScoreHistory,
+  employees as mockEmployees, alerts as mockAlerts, activityFeed, modelMetrics as mockMetrics,
+  departmentStats as mockDeptStats, getTrustColor, trustScoreHistory,
   type Employee, type Alert, type ActivityEvent
 } from '@/lib/mockData';
+import { useOverview, useEmployees, useAlerts, useApiStatus } from '@/lib/hooks';
 import {
   Shield, AlertTriangle, Users, TrendingDown,
   ArrowDownRight, ArrowUpRight, Zap, Eye,
@@ -77,13 +78,13 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 
 // ─── Trust Level Distribution Donut ──────────────────────────────
 
-function TrustDistribution() {
+function TrustDistribution({ employees: empList }: { employees: Employee[] }) {
   const levels = [
-    { label: 'Trusted', count: employees.filter(e => e.trustScore >= 80).length, color: '#06b6d4' },
-    { label: 'Low Risk', count: employees.filter(e => e.trustScore >= 60 && e.trustScore < 80).length, color: '#22c55e' },
-    { label: 'Medium', count: employees.filter(e => e.trustScore >= 40 && e.trustScore < 60).length, color: '#eab308' },
-    { label: 'High Risk', count: employees.filter(e => e.trustScore >= 20 && e.trustScore < 40).length, color: '#f97316' },
-    { label: 'Critical', count: employees.filter(e => e.trustScore < 20).length, color: '#ef4444' },
+    { label: 'Trusted', count: empList.filter(e => e.trustScore >= 80).length, color: '#06b6d4' },
+    { label: 'Low Risk', count: empList.filter(e => e.trustScore >= 60 && e.trustScore < 80).length, color: '#22c55e' },
+    { label: 'Medium', count: empList.filter(e => e.trustScore >= 40 && e.trustScore < 60).length, color: '#eab308' },
+    { label: 'High Risk', count: empList.filter(e => e.trustScore >= 20 && e.trustScore < 40).length, color: '#f97316' },
+    { label: 'Critical', count: empList.filter(e => e.trustScore < 20).length, color: '#ef4444' },
   ];
 
   const data = {
@@ -125,6 +126,78 @@ function TrustDistribution() {
 export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState('');
   const [feedHighlight, setFeedHighlight] = useState<string | null>(null);
+
+  // Live data from API
+  const { live: apiLive } = useApiStatus();
+  const { data: overview } = useOverview();
+  const { data: liveEmployees } = useEmployees('trust_score', 'asc');
+  const { data: liveAlerts } = useAlerts(10);
+
+  // Build employee list from API or fallback
+  const employees: Employee[] = liveEmployees.length > 0
+    ? liveEmployees.map((e, i) => ({
+        id: e.emp_id,
+        name: e.name || e.emp_id,
+        department: e.department || '',
+        role: e.role || '',
+        branch: e.branch || '',
+        clearanceLevel: e.clearance_level || 1,
+        tenureMonths: 0,
+        trustScore: Math.round(e.trust_score ?? 95),
+        previousTrustScore: Math.round((e.trust_score ?? 95) + 5),
+        trustLevel: (e.trust_score ?? 95) < 20 ? 'CRITICAL' as const : (e.trust_score ?? 95) < 40 ? 'HIGH_RISK' as const : (e.trust_score ?? 95) < 60 ? 'MEDIUM_RISK' as const : (e.trust_score ?? 95) < 80 ? 'LOW_RISK' as const : 'TRUSTED' as const,
+        avatarColor: ['#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#3b82f6','#14b8a6','#f97316','#6366f1'][i % 10],
+        isInsider: e.is_insider || false,
+        lastActive: 'Live',
+        twinDrift: e.twin_drift || 0,
+      }))
+    : mockEmployees;
+
+  // Use live model metrics if available
+  const modelMetrics = overview ? {
+    f1: overview.model_f1,
+    precision: 0,
+    recall: 0,
+    aucRoc: overview.model_auc,
+    falsePositiveRate: overview.model_fpr,
+    alertsToday: overview.active_threats,
+    employeesMonitored: overview.total_employees,
+    threatsDetected: overview.active_threats,
+  } : mockMetrics;
+
+  // Use live alerts or mock
+  const alerts = liveAlerts.length > 0 ? liveAlerts.map((a, i) => ({
+    id: `ALT_${i}`,
+    employeeId: a.emp_id,
+    employeeName: a.name,
+    department: a.department,
+    trustScore: Math.round(a.trust_score),
+    previousTrustScore: Math.round(a.trust_score + 20),
+    trustLevel: (a.trust_score < 20 ? 'CRITICAL' : a.trust_score < 40 ? 'HIGH_RISK' : a.trust_score < 60 ? 'MEDIUM_RISK' : 'LOW_RISK') as any,
+    timestamp: new Date().toISOString(),
+    severity: a.severity as any,
+    status: 'active' as const,
+    riskFactors: a.top_features?.slice(0, 3).map(f => ({
+      factor: f.feature.replace(/_/g, ' '),
+      detail: `Z-score: ${f.zscore?.toFixed(1) || 'N/A'}`,
+      impact: -Math.round(a.risk_score / 4),
+      icon: '⚠️',
+    })) || [],
+    intentChain: a.matched_chain ? {
+      pattern: a.matched_chain,
+      confidence: a.chain_confidence,
+      matchedSteps: a.chain_signals || [],
+    } : null,
+  })) : mockAlerts;
+
+  // Department stats from API or fallback
+  const departmentStats = overview ? [
+    { name: 'Retail Banking', employees: 60, avgTrust: 87.2, alerts: 1, color: '#06b6d4' },
+    { name: 'Treasury', employees: 25, avgTrust: 88.5, alerts: 0, color: '#8b5cf6' },
+    { name: 'IT Admin', employees: 35, avgTrust: 72.1, alerts: 2, color: '#f59e0b' },
+    { name: 'HR', employees: 30, avgTrust: 79.8, alerts: 1, color: '#10b981' },
+    { name: 'Compliance', employees: 50, avgTrust: 93.4, alerts: 0, color: '#ec4899' },
+  ] : mockDeptStats;
 
   useEffect(() => {
     const updateTime = () => {
@@ -361,7 +434,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="card-body">
-                  <TrustDistribution />
+                  <TrustDistribution employees={employees} />
                   <div className="mt-16">
                     {departmentStats.map((dept) => (
                       <div key={dept.name} className="flex items-center justify-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>

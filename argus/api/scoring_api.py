@@ -568,6 +568,54 @@ async def get_overview():
     })
 
 
+@app.get("/api/explain/{emp_id}")
+async def explain_employee(emp_id: str):
+    """Get SHAP explanation for an employee's risk prediction."""
+    emp_feat = data["features"][data["features"]["emp_id"] == emp_id]
+    if emp_feat.empty:
+        raise HTTPException(404, f"Employee {emp_id} not found")
+
+    feature_cols = data["feature_cols"]
+    avail = [c for c in feature_cols if c in data["features"].columns]
+    latest = emp_feat.sort_values("day_index").iloc[-1]
+    X = latest[avail].values.astype(float).reshape(1, -1)
+    X = np.nan_to_num(X, 0.0)
+
+    # Try SHAP explainer
+    if "shap_explainer" in models:
+        explanation = models["shap_explainer"].explain_single(X[0])
+        return _sanitize(explanation)
+
+    # Fallback: use LightGBM feature importance as proxy
+    if "lightgbm" in models:
+        prob = float(models["lightgbm"].predict_proba(X)[:, 1][0])
+        importances = models["lightgbm"].feature_importances_
+        feat_vals = X[0]
+
+        # Sort by importance
+        idx = np.argsort(importances)[::-1]
+        top_features = [
+            {
+                "feature": avail[i],
+                "shap_value": round(float(importances[i]) / 100, 4),
+                "feature_value": round(float(feat_vals[i]), 4),
+            }
+            for i in idx[:15]
+        ]
+
+        return _sanitize({
+            "prediction": round(prob, 4),
+            "base_value": 0.03,
+            "top_risk_factors": [f for f in top_features if prob > 0.5][:10],
+            "top_protective_factors": [f for f in top_features if prob <= 0.5][:5],
+            "total_shap_positive": round(prob, 4),
+            "total_shap_negative": round(1 - prob, 4),
+            "method": "feature_importance_fallback",
+        })
+
+    raise HTTPException(500, "No explainability model available")
+
+
 # ═══════════════════════════════════════════════════════════════
 #  CLI
 # ═══════════════════════════════════════════════════════════════
@@ -575,6 +623,17 @@ async def get_overview():
 def main():
     import uvicorn
     Config.setup()
+
+    # Try to load SHAP explainer
+    models_dir = Config.paths.MODELS
+    shap_path = models_dir / "shap_lgb_explainer.joblib"
+    if shap_path.exists():
+        try:
+            models["shap_explainer"] = joblib.load(shap_path)
+            logger.info("  ✅ SHAP explainer loaded")
+        except Exception as e:
+            logger.warning(f"  ⚠️ SHAP explainer failed to load: {e}")
+
     logger.info("Starting Argus AI API server (v2.0 — Enhanced Models)...")
     uvicorn.run(
         "argus.api.scoring_api:app",
@@ -587,3 +646,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
