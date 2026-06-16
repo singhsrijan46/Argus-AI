@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import SimulationControl from '@/components/SimulationControl';
 import MockBanner from '@/components/MockBanner';
@@ -228,16 +228,32 @@ export default function Dashboard() {
     return mockActivityFeed;
   }, [liveActivity]);
 
-  // Use server time from WebSocket
-  const currentTime = useMemo(() => {
-    try {
-      return new Date(sim.serverTime).toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      });
-    } catch {
-      return '--:--:--';
+  // Real-time clock synced to server time from WebSocket
+  const serverOffsetRef = useRef(0);
+  const [currentTime, setCurrentTime] = useState('--:--:--');
+
+  // Recalculate offset whenever server_time arrives
+  useEffect(() => {
+    if (sim.serverTime) {
+      try {
+        const serverMs = new Date(sim.serverTime).getTime();
+        serverOffsetRef.current = serverMs - Date.now();
+      } catch { /* keep previous offset */ }
     }
   }, [sim.serverTime]);
+
+  // Tick every second using the synced offset
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date(Date.now() + serverOffsetRef.current);
+      setCurrentTime(now.toLocaleTimeString('en-IN', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      }));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const sortedEmployees = [...employees].sort((a, b) => a.trustScore - b.trustScore);
   const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL');
