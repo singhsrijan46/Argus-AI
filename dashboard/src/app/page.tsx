@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import SimulationControl from '@/components/SimulationControl';
 import MockBanner from '@/components/MockBanner';
@@ -126,7 +126,6 @@ function TrustDistribution({ employees: empList }: { employees: Employee[] }) {
 // ─── Main Dashboard Page ─────────────────────────────────────────
 
 export default function Dashboard() {
-  const [currentTime, setCurrentTime] = useState('');
 
   // ─── Live hooks ───
   const sim = useSimulation();
@@ -229,16 +228,16 @@ export default function Dashboard() {
     return mockActivityFeed;
   }, [liveActivity]);
 
-  useEffect(() => {
-    const updateTime = () => {
-      setCurrentTime(new Date().toLocaleTimeString('en-IN', {
+  // Use server time from WebSocket
+  const currentTime = useMemo(() => {
+    try {
+      return new Date(sim.serverTime).toLocaleTimeString('en-IN', {
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      }));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+      });
+    } catch {
+      return '--:--:--';
+    }
+  }, [sim.serverTime]);
 
   const sortedEmployees = [...employees].sort((a, b) => a.trustScore - b.trustScore);
   const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL');
