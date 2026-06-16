@@ -423,15 +423,15 @@ def _update_scores_for_day(target_day: int):
 def _simulation_loop():
     """Background thread that auto-advances the simulation day."""
     while True:
-        time.sleep(0.5)  # Check every 500ms
+        time.sleep(0.1)  # Check every 100ms for snappy response
 
         with sim_lock:
             if simulation["paused"] or not simulation["auto_advance"]:
                 continue
 
             speed = simulation["speed"]
-            # Interval: 60 seconds at 1×, 30s at 2×, etc.
-            interval = 60.0 / max(1, speed)
+            # Interval: 8s at 1×, 4s at 2×, 1.6s at 5×, 0.8s at 10×, ~0.27s at 30×
+            interval = 8.0 / max(1, speed)
             elapsed = time.time() - simulation["last_tick_time"]
 
             if elapsed >= interval:
@@ -630,7 +630,7 @@ async def websocket_live(ws: WebSocket):
         nonlocal last_version, last_day, closed
         try:
             while not closed:
-                await asyncio.sleep(1.0)  # Check every 1 second
+                await asyncio.sleep(0.3)  # Check every 300ms for real-time push
                 cur_version = simulation.get("_ws_version", 0)
                 cur_day = simulation["current_day"]
 
