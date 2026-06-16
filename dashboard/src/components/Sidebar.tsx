@@ -4,13 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, ShieldAlert, BarChart3,
-  Activity, Eye, Settings, Zap,
+  Activity, Eye,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/employees', label: 'Employees', icon: Users },
-  { href: '/alerts', label: 'Alerts', icon: ShieldAlert, badge: 4 },
+  { href: '/alerts', label: 'Alerts', icon: ShieldAlert },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
@@ -19,7 +19,13 @@ const navItems2 = [
   { href: '/activity', label: 'Live Feed', icon: Activity },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  day?: number;
+  maxDay?: number;
+  live?: boolean;
+}
+
+export default function Sidebar({ day, maxDay, live }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -47,7 +53,6 @@ export default function Sidebar() {
             >
               <Icon className="nav-item-icon" size={18} />
               {item.label}
-              {item.badge && <span className="nav-badge">{item.badge}</span>}
             </Link>
           );
         })}
@@ -71,8 +76,15 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="sidebar-status">
-          <span className="status-dot" />
-          <span>System Active — 200 employees monitored</span>
+          <span className="status-dot" style={{
+            background: live ? '#22c55e' : '#f59e0b',
+            boxShadow: live ? '0 0 6px rgba(34,197,94,0.5)' : '0 0 6px rgba(245,158,11,0.5)',
+          }} />
+          <span>
+            {live
+              ? `Day ${day ?? '—'}/${maxDay ?? '—'} · 200 monitored`
+              : 'Offline — Using demo data'}
+          </span>
         </div>
       </div>
     </aside>

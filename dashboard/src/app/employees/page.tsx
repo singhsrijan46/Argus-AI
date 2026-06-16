@@ -3,9 +3,11 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
-import { employees as mockEmployees, getTrustColor, trustScoreHistory, type Employee } from '@/lib/mockData';
-import { useEmployees, useApiStatus } from '@/lib/hooks';
-import { Search, Filter, ChevronRight, ArrowUpDown } from 'lucide-react';
+import MockBanner from '@/components/MockBanner';
+import SimulationControl from '@/components/SimulationControl';
+import { employees as mockEmployees, getTrustColor, type Employee } from '@/lib/mockData';
+import { useEmployees, useSimulation } from '@/lib/hooks';
+import { Search, ChevronRight, ArrowUpDown } from 'lucide-react';
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...data);
@@ -28,8 +30,8 @@ export default function EmployeesPage() {
   const [sortKey, setSortKey] = useState<SortKey>('trustScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const { live: apiLive } = useApiStatus();
-  const { data: liveEmployees } = useEmployees('trust_score', 'asc');
+  const sim = useSimulation();
+  const { data: liveEmployees, isMock } = useEmployees('trust_score', 'asc');
 
   // Map API employees to mock format, or fallback
   const employees: Employee[] = useMemo(() => {
@@ -93,13 +95,24 @@ export default function EmployeesPage() {
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
       <main className="main-content">
         <div className="page-header">
-          <h1 className="page-title">Employees</h1>
-          <p className="page-subtitle">Monitor all employees and their behavioral trust scores</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="page-title">Employees</h1>
+              <p className="page-subtitle">Monitor all employees and their behavioral trust scores</p>
+            </div>
+            <SimulationControl
+              day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+              paused={sim.paused} live={sim.live}
+              onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+              onReset={sim.reset} onJumpTo={sim.jumpTo}
+            />
+          </div>
         </div>
         <div className="page-content">
+          <MockBanner show={isMock} />
           {/* Search & Filter Bar */}
           <div className="flex items-center gap-16 mb-24">
             <div className="search-bar" style={{ flex: 1, maxWidth: 400 }}>
@@ -180,10 +193,9 @@ export default function EmployeesPage() {
                           </span>
                         </td>
                         <td>
-                          {trustScoreHistory[emp.id]
-                            ? <Sparkline data={trustScoreHistory[emp.id]} color={color} />
-                            : <span className="text-xs text-muted">—</span>
-                          }
+                          <span className="text-mono text-sm" style={{ color: emp.twinDrift > 0.3 ? '#ef4444' : emp.twinDrift > 0.1 ? '#eab308' : 'var(--text-muted)' }}>
+                            {emp.twinDrift > 0.01 ? emp.twinDrift.toFixed(2) : '—'}
+                          </span>
                         </td>
                         <td>
                           <span className="text-mono text-sm" style={{ color: emp.twinDrift > 0.5 ? '#ef4444' : emp.twinDrift > 0.1 ? '#eab308' : 'var(--text-muted)' }}>

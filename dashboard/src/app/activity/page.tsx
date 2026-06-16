@@ -1,38 +1,51 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { activityFeed, getTrustColor, type ActivityEvent } from '@/lib/mockData';
-import { Activity, Filter, Pause, Play } from 'lucide-react';
+import MockBanner from '@/components/MockBanner';
+import SimulationControl from '@/components/SimulationControl';
+import { activityFeed as mockActivityFeed, type ActivityEvent } from '@/lib/mockData';
+import { useActivity, useSimulation } from '@/lib/hooks';
+import { Activity } from 'lucide-react';
 
 export default function ActivityPage() {
-  const [isPaused, setIsPaused] = useState(false);
+  const sim = useSimulation();
+  const { data: liveActivity, isMock } = useActivity(undefined, 100);
   const [filter, setFilter] = useState<string>('all');
-  const [events, setEvents] = useState(activityFeed);
-  const [newEventFlash, setNewEventFlash] = useState<string | null>(null);
 
-  // Simulated live events
-  useEffect(() => {
-    if (isPaused) return;
-    const syntheticEvents: ActivityEvent[] = [
-      { id: 'LIVE_01', timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), employeeId: 'EMP_003', employeeName: 'Vikram Singh', actionType: 'login', system: 'Admin Console', detail: 'Routine admin check — within scope', riskContribution: 4, icon: '🔑' },
-      { id: 'LIVE_02', timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), employeeId: 'EMP_005', employeeName: 'Rohan Gupta', actionType: 'data_access', system: 'AML Platform', detail: 'SAR filing — compliance routine', riskContribution: 2, icon: '📋' },
-      { id: 'LIVE_03', timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), employeeId: 'EMP_155', employeeName: 'Arjun Kapoor', actionType: 'system_command', system: 'Production Server', detail: 'Executed DROP TABLE — CRITICAL unauthorized command', riskContribution: 98, icon: '💀' },
-    ];
-
-    let idx = 0;
-    const interval = setInterval(() => {
-      if (idx < syntheticEvents.length) {
-        const newEvent = { ...syntheticEvents[idx], id: `LIVE_${Date.now()}`, timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) };
-        setEvents(prev => [newEvent, ...prev].slice(0, 50));
-        setNewEventFlash(newEvent.id);
-        setTimeout(() => setNewEventFlash(null), 2000);
-        idx++;
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [isPaused]);
+  // Map live API events to UI format
+  const events: ActivityEvent[] = useMemo(() => {
+    if (liveActivity.length > 0) {
+      return liveActivity.map((evt, i) => ({
+        id: evt.event_id || `evt_${i}`,
+        timestamp: new Date(evt.timestamp).toLocaleTimeString('en-IN', {
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        }),
+        employeeId: evt.emp_id,
+        employeeName: evt.emp_id,
+        actionType: evt.action_type,
+        system: evt.system,
+        detail: `${evt.action_type.replace(/_/g, ' ')} — ${evt.resource || evt.system}${evt.records_accessed > 0 ? ` (${evt.records_accessed} records)` : ''}`,
+        riskContribution: evt.is_after_hours && evt.is_new_device ? 90
+          : evt.is_after_hours ? 65
+          : evt.is_new_device ? 55
+          : evt.action_type.includes('escalation') ? 95
+          : evt.action_type.includes('usb') ? 80
+          : evt.records_accessed > 50 ? 45
+          : evt.data_volume_mb > 5 ? 40
+          : 5,
+        icon: evt.action_type.includes('login') ? '🔑'
+          : evt.action_type.includes('logout') ? '🔒'
+          : evt.action_type.includes('usb') ? '💾'
+          : evt.action_type.includes('escalation') ? '💀'
+          : evt.action_type.includes('email') ? '📧'
+          : evt.is_after_hours ? '🌙'
+          : evt.is_new_device ? '🔌'
+          : '🔍',
+      }));
+    }
+    return mockActivityFeed;
+  }, [liveActivity]);
 
   const riskLevels = ['all', 'critical', 'high', 'medium', 'low'];
   const filtered = filter === 'all'
@@ -46,7 +59,7 @@ export default function ActivityPage() {
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
       <main className="main-content">
         <div className="page-header">
           <div className="flex items-center justify-between">
@@ -55,19 +68,12 @@ export default function ActivityPage() {
               <p className="page-subtitle">Real-time behavioral event stream across all departments</p>
             </div>
             <div className="flex items-center gap-12">
-              <button
-                onClick={() => setIsPaused(!isPaused)}
-                className="nav-item"
-                style={{
-                  padding: '6px 14px', borderRadius: 'var(--radius-md)', width: 'auto',
-                  background: isPaused ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                  border: `1px solid ${isPaused ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-                  color: isPaused ? '#22c55e' : '#ef4444',
-                }}
-              >
-                {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                <span className="text-xs font-semibold">{isPaused ? 'Resume' : 'Pause'}</span>
-              </button>
+              <SimulationControl
+                day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+                paused={sim.paused} live={sim.live}
+                onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+                onReset={sim.reset} onJumpTo={sim.jumpTo}
+              />
               <div className="filter-tabs">
                 {riskLevels.map(l => (
                   <button key={l} className={`filter-tab ${filter === l ? 'active' : ''}`} onClick={() => setFilter(l)}>
@@ -79,16 +85,18 @@ export default function ActivityPage() {
           </div>
         </div>
         <div className="page-content">
+          <MockBanner show={isMock} />
+
           {/* Live indicator */}
           <div className="flex items-center gap-8 mb-16">
             <span style={{
               width: 8, height: 8, borderRadius: '50%',
-              background: isPaused ? '#eab308' : '#22c55e',
-              boxShadow: isPaused ? '0 0 8px rgba(234,179,8,0.4)' : '0 0 8px rgba(34,197,94,0.4)',
-              animation: isPaused ? 'none' : 'pulse-dot 2s ease-in-out infinite',
+              background: isMock ? '#eab308' : '#22c55e',
+              boxShadow: isMock ? '0 0 8px rgba(234,179,8,0.4)' : '0 0 8px rgba(34,197,94,0.4)',
+              animation: isMock ? 'none' : 'pulse-dot 2s ease-in-out infinite',
             }} />
-            <span className="text-xs text-mono" style={{ color: isPaused ? '#eab308' : '#22c55e' }}>
-              {isPaused ? 'PAUSED' : 'STREAMING'} — {filtered.length} events
+            <span className="text-xs text-mono" style={{ color: isMock ? '#eab308' : '#22c55e' }}>
+              {isMock ? 'MOCK DATA' : `LIVE — Day ${sim.day}`} — {filtered.length} events
             </span>
           </div>
 
@@ -96,16 +104,10 @@ export default function ActivityPage() {
             <div className="card-body" style={{ padding: '8px 20px 20px' }}>
               {filtered.map((event) => {
                 const riskLevel = event.riskContribution > 70 ? 'high' : event.riskContribution > 30 ? 'medium' : 'low';
-                const isNew = newEventFlash === event.id;
                 return (
                   <div
                     key={event.id}
                     className="feed-item"
-                    style={{
-                      background: isNew ? 'rgba(6, 182, 212, 0.06)' : undefined,
-                      borderRadius: isNew ? 'var(--radius-md)' : undefined,
-                      transition: 'background 0.8s ease',
-                    }}
                   >
                     <span className="feed-time">{event.timestamp}</span>
                     <span className="feed-icon" style={{ fontSize: 16 }}>{event.icon}</span>

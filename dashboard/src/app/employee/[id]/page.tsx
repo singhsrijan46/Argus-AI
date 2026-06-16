@@ -2,12 +2,14 @@
 
 import { use } from 'react';
 import Sidebar from '@/components/Sidebar';
+import MockBanner from '@/components/MockBanner';
+import SimulationControl from '@/components/SimulationControl';
 import GeminiReport from '@/components/GeminiReport';
 import {
   getEmployee, getAlertsByEmployee, getTrustColor,
-  privilegeDecayTimeline, sampleTwinProfile, trustScoreHistory, activityFeed,
+  privilegeDecayTimeline, sampleTwinProfile, activityFeed,
 } from '@/lib/mockData';
-import { useEmployee, useShapExplanation, useApiStatus } from '@/lib/hooks';
+import { useEmployee, useShapExplanation, useSimulation, useActivity } from '@/lib/hooks';
 import {
   ArrowLeft, Shield, AlertTriangle, Clock, Fingerprint,
   Cpu, TrendingDown, Eye, Zap, Brain,
@@ -85,17 +87,17 @@ function ShapWaterfall({ shapData }: { shapData: any }) {
   );
 }
 
-export default function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function EmployeeDetailPage(props: { params: Promise<{ id: string }> }) {
+  const { params: rawParams } = props;
+  const params = use(rawParams);
+  const id = params.id;
 
-  // Live data
-  const { live: apiLive } = useApiStatus();
-  const { data: liveDetail } = useEmployee(id);
+  const sim = useSimulation();
+  const { data: liveDetail, isMock } = useEmployee(id);
   const { data: shapData, loading: shapLoading } = useShapExplanation(id);
-
-  // Fallback to mock data
+  const { data: liveActivity } = useActivity(id, 20);
   const mockEmp = getEmployee(id);
-  const empAlerts = getAlertsByEmployee(id);
+  const mockAlerts = getAlertsByEmployee(id);
 
   // Use live data if available
   const empName = liveDetail?.employee?.name as string || mockEmp?.name || id;
@@ -111,8 +113,15 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   // Trust timeline from API
   const liveTimeline = liveDetail?.trust_timeline || [];
 
-  // Default to sample data for demo
-  const twin = sampleTwinProfile;
+  // Use live twin comparison if available, else fall back to mock
+  const twinDimensions = (liveDetail?.twin_comparison?.dimensions && liveDetail.twin_comparison.dimensions.length > 0)
+    ? liveDetail.twin_comparison.dimensions.map(d => ({
+        label: d.category,
+        expected: Math.round(d.baseline * 100),
+        actual: Math.round(d.current * 100),
+      }))
+    : sampleTwinProfile.dimensions;
+
   const decay = liveTimeline.length > 5
     ? liveTimeline.map(t => ({
         time: `Day ${t.day_index}`,
@@ -120,6 +129,21 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
         event: t.risk_score > 70 ? `Risk spike: ${Math.round(t.risk_score)}` : null,
       }))
     : privilegeDecayTimeline;
+
+  // Activity feed from API or fallback
+  const activityData = liveActivity.length > 0
+    ? liveActivity.map((evt, i) => ({
+        id: evt.event_id || `evt_${i}`,
+        timestamp: new Date(evt.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        employeeId: evt.emp_id,
+        employeeName: evt.emp_id,
+        actionType: evt.action_type,
+        system: evt.system,
+        detail: `${evt.action_type.replace(/_/g, ' ')} on ${evt.system}`,
+        riskContribution: evt.is_after_hours ? 65 : evt.is_new_device ? 55 : 10,
+        icon: evt.action_type.includes('login') ? '🔑' : evt.is_after_hours ? '🌙' : '🔍',
+      }))
+    : activityFeed.filter(e => e.employeeId === id).slice(0, 10);
 
   function getTrustLevel(score: number) {
     if (score < 20) return 'CRITICAL';
@@ -148,11 +172,11 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
 
   // ─── Radar Chart (Twin Comparison) ───
   const radarData = {
-    labels: twin.dimensions.map(d => d.label),
+    labels: twinDimensions.map(d => d.label),
     datasets: [
       {
         label: 'Expected (Twin)',
-        data: twin.dimensions.map(d => d.expected),
+        data: twinDimensions.map(d => d.expected),
         borderColor: '#06b6d4',
         backgroundColor: 'rgba(6, 182, 212, 0.1)',
         borderWidth: 2,
@@ -161,7 +185,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
       },
       {
         label: 'Actual (Current)',
-        data: twin.dimensions.map(d => d.actual),
+        data: twinDimensions.map(d => d.actual),
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         borderWidth: 2,
@@ -260,20 +284,24 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
       <main className="main-content">
         <div className="page-header">
-          <Link href="/employees" className="flex items-center gap-4 text-sm text-muted mb-16" style={{ textDecoration: 'none' }}>
-            <ArrowLeft size={14} /> Back to Employees
-          </Link>
-          {apiLive && (
-            <span className="text-xs text-mono" style={{ color: '#22c55e', float: 'right', marginTop: -24 }}>
-              ● LIVE API
-            </span>
-          )}
+          <div className="flex items-center justify-between">
+            <Link href="/employees" className="flex items-center gap-4 text-sm text-muted" style={{ textDecoration: 'none' }}>
+              <ArrowLeft size={14} /> Back to Employees
+            </Link>
+            <SimulationControl
+              day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+              paused={sim.paused} live={sim.live}
+              onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+              onReset={sim.reset} onJumpTo={sim.jumpTo}
+            />
+          </div>
         </div>
 
         <div className="page-content" style={{ paddingTop: 0 }}>
+          <MockBanner show={isMock} />
           {/* Employee Header Card */}
           <div className={`card ${isHighRisk ? 'card-glow-red' : 'card-glow-cyan'}`} style={{ marginBottom: 24 }}>
             <div style={{ padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -362,17 +390,17 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               risk_score: riskScore,
             }}
             shapData={shapData}
-            alertData={empAlerts?.[0] ? {
-              severity: empAlerts[0].severity,
-              matched_chain: empAlerts[0].intentChain?.pattern || '',
-              chain_confidence: empAlerts[0].intentChain?.confidence || 0,
-              chain_signals: empAlerts[0].intentChain?.matchedSteps || [],
-              top_features: empAlerts[0].riskFactors?.map((rf: { factor: string; detail: string; impact: number }) => ({
+            alertData={mockAlerts?.[0] ? {
+              severity: mockAlerts[0].severity,
+              matched_chain: mockAlerts[0].intentChain?.pattern || '',
+              chain_confidence: mockAlerts[0].intentChain?.confidence || 0,
+              chain_signals: mockAlerts[0].intentChain?.matchedSteps || [],
+              top_features: mockAlerts[0].riskFactors?.map((rf: { factor: string; detail: string; impact: number }) => ({
                 feature: rf.factor,
                 zscore: rf.impact,
                 value: rf.impact,
               })) || [],
-              summary: empAlerts[0].riskFactors?.map((rf: { detail: string }) => rf.detail).join('; ') || '',
+              summary: mockAlerts[0].riskFactors?.map((rf: { detail: string }) => rf.detail).join('; ') || '',
             } : null}
           />
 
@@ -390,11 +418,11 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                 {[
-                  { label: 'Login Time', expected: twin.expectedLogin, actual: twin.actualLogin, icon: '🕐' },
-                  { label: 'Records Accessed', expected: `${twin.expectedRecords}/day`, actual: `${twin.actualRecords}/day`, icon: '📊' },
-                  { label: 'Data Volume', expected: `${twin.expectedDataVolume} MB`, actual: `${twin.actualDataVolume} MB`, icon: '💾' },
-                  { label: 'Devices Used', expected: `${twin.expectedDevices}`, actual: `${twin.actualDevices}`, icon: '🖥️' },
-                  { label: 'Systems', expected: twin.expectedSystems.join(', '), actual: twin.actualSystems.join(', '), icon: '🔗' },
+                  { label: 'Login Time', expected: sampleTwinProfile.expectedLogin, actual: sampleTwinProfile.actualLogin, icon: '🕐' },
+                  { label: 'Records Accessed', expected: `${sampleTwinProfile.expectedRecords}/day`, actual: `${sampleTwinProfile.actualRecords}/day`, icon: '📊' },
+                  { label: 'Data Volume', expected: `${sampleTwinProfile.expectedDataVolume} MB`, actual: `${sampleTwinProfile.actualDataVolume} MB`, icon: '💾' },
+                  { label: 'Devices Used', expected: `${sampleTwinProfile.expectedDevices}`, actual: `${sampleTwinProfile.actualDevices}`, icon: '🖥️' },
+                  { label: 'Systems', expected: sampleTwinProfile.expectedSystems.join(', '), actual: sampleTwinProfile.actualSystems.join(', '), icon: '🔗' },
                 ].map((item, i) => (
                   <div key={i} style={{
                     display: 'grid', gridTemplateColumns: '110px 1fr 1fr',

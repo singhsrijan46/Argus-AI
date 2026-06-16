@@ -1,14 +1,17 @@
 'use client';
 
 import Sidebar from '@/components/Sidebar';
-import { modelMetrics, departmentStats, employees, getTrustColor } from '@/lib/mockData';
-import { BarChart3, Target, Gauge, TrendingUp, PieChart, Layers, Zap } from 'lucide-react';
+import MockBanner from '@/components/MockBanner';
+import SimulationControl from '@/components/SimulationControl';
+import { modelMetrics as mockMetrics } from '@/lib/mockData';
+import { useAnalytics, useSimulation } from '@/lib/hooks';
+import { BarChart3, Target, TrendingUp, Layers, Zap } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, ArcElement, Filler, Tooltip, Legend,
 } from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend);
 
@@ -51,6 +54,23 @@ function MetricGauge({ label, value, max = 1, color, suffix = '' }: { label: str
 }
 
 export default function AnalyticsPage() {
+  const sim = useSimulation();
+  const { data: analytics, isMock } = useAnalytics();
+
+  // Use live metrics if available, else fall back to mock
+  const modelMetrics = analytics?.model_metrics?.results
+    ? (() => {
+        const r = analytics.model_metrics.results as Record<string, Record<string, number>>;
+        const best = r[analytics.model_metrics.best_model] || {};
+        return {
+          f1: best.test_f1 ?? mockMetrics.f1,
+          precision: best.test_precision ?? mockMetrics.precision,
+          recall: best.test_recall ?? mockMetrics.recall,
+          aucRoc: best.test_auc_roc ?? mockMetrics.aucRoc,
+          falsePositiveRate: best.test_fpr ?? mockMetrics.falsePositiveRate,
+        };
+      })()
+    : mockMetrics;
   // ─── ROC Curve Mock Data ───
   const rocData = {
     labels: Array.from({ length: 20 }, (_, i) => (i * 5).toString()),
@@ -198,13 +218,24 @@ export default function AnalyticsPage() {
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
       <main className="main-content">
         <div className="page-header">
-          <h1 className="page-title">Model Analytics</h1>
-          <p className="page-subtitle">Performance metrics, ablation studies, and model comparisons</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="page-title">Model Analytics</h1>
+              <p className="page-subtitle">Performance metrics, ablation studies, and model comparisons</p>
+            </div>
+            <SimulationControl
+              day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+              paused={sim.paused} live={sim.live}
+              onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+              onReset={sim.reset} onJumpTo={sim.jumpTo}
+            />
+          </div>
         </div>
         <div className="page-content">
+          <MockBanner show={isMock} />
           {/* Gauge Row */}
           <div className="card mb-24">
             <div className="card-body" style={{ display: 'flex', justifyContent: 'space-around', padding: '28px 20px' }}>
