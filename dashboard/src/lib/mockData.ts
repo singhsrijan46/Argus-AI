@@ -494,17 +494,17 @@ export function getAlertsByEmployee(id: string): Alert[] {
 }
 
 export function getTrustColor(score: number): string {
-  if (score < 20) return '#ef4444';
-  if (score < 40) return '#f97316';
-  if (score < 60) return '#eab308';
-  if (score < 80) return '#22c55e';
-  return '#06b6d4';
+  if (score < 20) return '#e5625e'; // ruby coral
+  if (score < 40) return '#f19c79'; // sunset peach
+  if (score < 60) return '#ecd389'; // honey sand
+  if (score < 80) return '#8eb897'; // sage mint
+  return '#6c809a'; // slate steel
 }
 
 export function getTrustGradient(score: number): string {
-  if (score < 20) return 'linear-gradient(135deg, #ef4444, #dc2626)';
-  if (score < 40) return 'linear-gradient(135deg, #f97316, #ea580c)';
-  if (score < 60) return 'linear-gradient(135deg, #eab308, #ca8a04)';
-  if (score < 80) return 'linear-gradient(135deg, #22c55e, #16a34a)';
-  return 'linear-gradient(135deg, #06b6d4, #0891b2)';
+  if (score < 20) return 'linear-gradient(135deg, #e5625e, #c55350)';
+  if (score < 40) return 'linear-gradient(135deg, #f19c79, #d08665)';
+  if (score < 60) return 'linear-gradient(135deg, #ecd389, #cab372)';
+  if (score < 80) return 'linear-gradient(135deg, #8eb897, #769d7e)';
+  return 'linear-gradient(135deg, #6c809a, #5a6d84)';
 }
