@@ -293,7 +293,6 @@ export default function Dashboard() {
                       background: `color-mix(in srgb, ${color} 18%, var(--surface))`,
                       borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
                       color: color,
-                      boxShadow: `0 0 8px ${color}15`,
                       textDecoration: 'none',
                     }}
                     title={`${emp.name} — ${emp.trustScore}`}
@@ -344,20 +343,29 @@ export default function Dashboard() {
                   className={`alert-item severity-${alert.severity}`}
                   style={{ textDecoration: 'none' }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="flex items-center gap-8">
+                  <span className="alert-card-icon">
+                    <AlertCircle size={16} />
+                  </span>
+                  <div className="alert-card-copy">
+                    <div className="alert-card-head">
                       <span className="alert-name">{alert.employeeName}</span>
-                      <span className={`badge badge--${alert.severity.toLowerCase()}`}>{alert.severity}</span>
+                      <span className={`badge badge--${alert.severity.toLowerCase()}`}>
+                        {alert.severity}
+                      </span>
                     </div>
-                    <div className="alert-meta">{alert.department} · {alert.riskFactors[0]?.factor}</div>
+                    <div className="alert-meta">
+                      <span>{alert.department}</span>
+                      {alert.riskFactors[0]?.factor && <span>{alert.riskFactors[0].factor}</span>}
+                    </div>
                     {alert.intentChain && (
                       <div className="alert-intent">
                         {alert.intentChain.pattern} ({(alert.intentChain.confidence * 100).toFixed(0)}%)
                       </div>
                     )}
                   </div>
-                  <span className="text-mono font-bold" style={{ color: getTrustColor(alert.trustScore) }}>
-                    {alert.trustScore}
+                  <span className="alert-score" style={{ color: getTrustColor(alert.trustScore) }}>
+                    <strong>{alert.trustScore}</strong>
+                    <small>trust</small>
                   </span>
                 </Link>
               ))}

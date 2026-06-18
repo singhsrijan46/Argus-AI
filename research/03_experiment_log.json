@@ -9,18 +9,18 @@
   {
     "experiment": "XGBoost Standalone",
     "val_f1": 0.9485,
-    "val_threshold": 0.498,
+    "val_threshold": 0.438,
     "top_features": [
       "roll_7d_max_data_volume_mb",
       "roll_14d_std_data_volume_mb",
       "expanding_max_systems",
-      "roll_14d_std_novelty_score",
-      "zscore_role_unique_systems_accessed",
       "roll_7d_std_novelty_score",
+      "roll_7d_std_is_new_device",
+      "roll_14d_max_data_volume_mb",
       "clearance_normalized",
-      "roll_7d_std_data_egress_volume",
-      "delta_novelty_score",
-      "is_weekend"
+      "novelty_score",
+      "roll_14d_std_data_egress_volume",
+      "zscore_role_unique_systems_accessed"
     ]
   },
   {
@@ -30,8 +30,8 @@
   },
   {
     "experiment": "Federated MLP (\u03b5-DP)",
-    "val_f1": 0.7711,
-    "val_threshold": 0.473,
+    "val_f1": 0.7674,
+    "val_threshold": 0.424,
     "epsilon_spent": 0.0319,
     "departments": [
       "retail_banking",
@@ -43,11 +43,11 @@
   {
     "experiment": "Meta-Learner (LR)",
     "val_f1": 0.9485,
-    "val_threshold": 0.054
+    "val_threshold": 0.049
   },
   {
     "experiment": "Simple Blend",
     "val_f1": 0.9485,
-    "val_threshold": 0.173
+    "val_threshold": 0.143
   }
 ]
