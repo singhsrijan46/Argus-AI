@@ -1,117 +1,64 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import Sidebar from '@/components/Sidebar';
-import SimulationControl from '@/components/SimulationControl';
+import { useMemo } from 'react';
+import Link from 'next/link';
+import AppShell from '@/components/AppShell';
+import MissionTimeBar from '@/components/MissionTimeBar';
 import MockBanner from '@/components/MockBanner';
+import StatCard from '@/components/StatCard';
+import Panel from '@/components/Panel';
+import AnimatedNumber from '@/components/AnimatedNumber';
 import {
   employees as mockEmployees, alerts as mockAlerts, activityFeed as mockActivityFeed,
   modelMetrics as mockMetrics, departmentStats as mockDeptStats, getTrustColor,
   type Employee,
 } from '@/lib/mockData';
 import { useOverview, useEmployees, useAlerts, useSimulation, useActivity, useAnalytics } from '@/lib/hooks';
+import { useTheme } from '@/lib/ThemeContext';
 import {
   Shield, AlertTriangle, Users, TrendingDown,
-  ArrowDownRight, ArrowUpRight, Zap, Eye,
-  Activity, Clock
+  ArrowDownRight, ArrowUpRight, Zap, Eye, Activity,
+  AlertCircle,
 } from 'lucide-react';
 import {
-  Chart as ChartJS,
-  ArcElement, Tooltip, Legend,
-  CategoryScale, LinearScale, PointElement, LineElement, Filler,
+  Chart as ChartJS, ArcElement, Tooltip, Legend,
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
-
-// ─── Animated Counter ────────────────────────────────────────────
-
-function AnimatedCounter({ value, decimals = 0, suffix = '' }: { value: number; decimals?: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    const duration = 1200;
-    const steps = 40;
-    const increment = value / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= value) {
-        setDisplay(value);
-        clearInterval(timer);
-      } else {
-        setDisplay(current);
-      }
-    }, duration / steps);
-    return () => clearInterval(timer);
-  }, [value]);
-  return <>{display.toFixed(decimals)}{suffix}</>;
-}
-
-// ─── Mini Sparkline ──────────────────────────────────────────────
-
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const h = 28;
-  const w = 80;
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * h;
-    return `${x},${y}`;
-  }).join(' ');
-
-  return (
-    <svg width={w} height={h} className="sparkline-container">
-      <defs>
-        <linearGradient id={`grad-${color.replace('#','')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline fill="none" stroke={color} strokeWidth="1.5" points={points} />
-      <polygon
-        fill={`url(#grad-${color.replace('#','')})`}
-        points={`0,${h} ${points} ${w},${h}`}
-      />
-    </svg>
-  );
-}
-
-// ─── Trust Level Distribution Donut ──────────────────────────────
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 function TrustDistribution({ employees: empList }: { employees: Employee[] }) {
+  const { isDark } = useTheme();
   const levels = [
-    { label: 'Trusted', count: empList.filter(e => e.trustScore >= 80).length, color: '#06b6d4' },
-    { label: 'Low Risk', count: empList.filter(e => e.trustScore >= 60 && e.trustScore < 80).length, color: '#22c55e' },
-    { label: 'Medium', count: empList.filter(e => e.trustScore >= 40 && e.trustScore < 60).length, color: '#eab308' },
-    { label: 'High Risk', count: empList.filter(e => e.trustScore >= 20 && e.trustScore < 40).length, color: '#f97316' },
-    { label: 'Critical', count: empList.filter(e => e.trustScore < 20).length, color: '#ef4444' },
+    { label: 'Trusted', count: empList.filter(e => e.trustScore >= 80).length, color: '#2563eb' },
+    { label: 'Low Risk', count: empList.filter(e => e.trustScore >= 60 && e.trustScore < 80).length, color: '#16a34a' },
+    { label: 'Medium', count: empList.filter(e => e.trustScore >= 40 && e.trustScore < 60).length, color: '#d97706' },
+    { label: 'High Risk', count: empList.filter(e => e.trustScore >= 20 && e.trustScore < 40).length, color: '#ea580c' },
+    { label: 'Critical', count: empList.filter(e => e.trustScore < 20).length, color: '#dc2626' },
   ];
 
-  const data = {
-    labels: levels.map(l => l.label),
-    datasets: [{
-      data: levels.map(l => l.count),
-      backgroundColor: levels.map(l => l.color),
-      borderWidth: 0,
-      hoverOffset: 4,
-    }],
-  };
-
   return (
-    <div style={{ width: 180, height: 180, margin: '0 auto' }}>
+    <div className="donut-wrapper">
       <Doughnut
-        data={data}
+        data={{
+          labels: levels.map(l => l.label),
+          datasets: [{
+            data: levels.map(l => l.count),
+            backgroundColor: levels.map(l => l.color),
+            borderWidth: 2,
+            borderColor: isDark ? '#171717' : '#ffffff',
+            hoverOffset: 4,
+          }],
+        }}
         options={{
-          cutout: '72%',
+          cutout: '70%',
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(15, 23, 42, 0.9)',
-              titleFont: { family: 'Inter', size: 12 },
-              bodyFont: { family: 'Inter', size: 11 },
-              borderColor: 'rgba(148, 163, 184, 0.1)',
+              backgroundColor: 'var(--chart-tooltip-bg)',
+              titleColor: 'var(--text)',
+              bodyColor: 'var(--text-secondary)',
+              borderColor: 'var(--chart-tooltip-border)',
               borderWidth: 1,
               padding: 10,
               cornerRadius: 8,
@@ -119,59 +66,83 @@ function TrustDistribution({ employees: empList }: { employees: Employee[] }) {
           },
         }}
       />
+      <div className="donut-center">
+        <span className="donut-center-value">{empList.length}</span>
+        <span className="donut-center-label">Total</span>
+      </div>
     </div>
   );
 }
 
-// ─── Main Dashboard Page ─────────────────────────────────────────
-
 export default function Dashboard() {
-
-  // ─── Live hooks ───
   const sim = useSimulation();
   const { data: overview, isMock: overviewMock } = useOverview();
   const { data: liveEmployees, isMock: empMock } = useEmployees('trust_score', 'asc');
-  const { data: liveAlerts, isMock: alertsMock } = useAlerts(10);
+  const { data: liveAlerts } = useAlerts(10);
   const { data: liveActivity, isMock: activityMock } = useActivity(undefined, 15);
-  const { data: analytics, isMock: analyticsMock } = useAnalytics();
+  const { data: analytics } = useAnalytics();
 
   const isMock = overviewMock || empMock;
 
-  // Build employee list from API or fallback
-  const employees: Employee[] = useMemo(() => (
-    liveEmployees.length > 0
-      ? liveEmployees.map((e, i) => ({
-          id: e.emp_id,
-          name: e.name || e.emp_id,
-          department: e.department || '',
-          role: e.role || '',
-          branch: e.branch || '',
-          clearanceLevel: e.clearance_level || 1,
-          tenureMonths: 0,
-          trustScore: Math.round(e.trust_score ?? 95),
-          previousTrustScore: Math.round((e.trust_score ?? 95) + 5),
-          trustLevel: (e.trust_score ?? 95) < 20 ? 'CRITICAL' as const : (e.trust_score ?? 95) < 40 ? 'HIGH_RISK' as const : (e.trust_score ?? 95) < 60 ? 'MEDIUM_RISK' as const : (e.trust_score ?? 95) < 80 ? 'LOW_RISK' as const : 'TRUSTED' as const,
-          avatarColor: ['#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#3b82f6','#14b8a6','#f97316','#6366f1'][i % 10],
-          isInsider: e.is_insider || false,
-          lastActive: 'Live',
-          twinDrift: e.twin_drift || 0,
-        }))
-      : mockEmployees
-  ), [liveEmployees]);
+  const employees: Employee[] = useMemo(() => {
+    const rawList = liveEmployees.length > 0 ? liveEmployees : mockEmployees;
+    return rawList.map((e, i) => {
+      // In demo mode, apply a tiny deterministic drift based on simulation day
+      // so that the heatmap cells actually morph and change color/values as days tick!
+      let score = 'trustScore' in e ? e.trustScore : Math.round((e as any).trust_score ?? 95);
+      if (liveEmployees.length === 0) {
+        const seed = Math.sin(i * 12.34 + sim.day * 5.67);
+        const drift = Math.round(seed * 5);
+        score = Math.max(10, Math.min(100, score + drift));
+      }
+      const previousScore = Math.max(10, Math.min(100, score + 5));
 
-  // Use live model metrics if available
-  const modelMetrics = overview ? {
-    f1: overview.model_f1,
-    precision: 0,
-    recall: 0,
-    aucRoc: overview.model_auc,
-    falsePositiveRate: overview.model_fpr,
-    alertsToday: overview.active_threats,
-    employeesMonitored: overview.total_employees,
-    threatsDetected: overview.active_threats,
-  } : mockMetrics;
+      return {
+        id: 'id' in e ? e.id : (e as any).emp_id,
+        name: e.name,
+        department: e.department,
+        role: e.role,
+        branch: e.branch,
+        clearanceLevel: 'clearanceLevel' in e ? e.clearanceLevel : (e as any).clearance_level || 1,
+        tenureMonths: 'tenureMonths' in e ? e.tenureMonths : 0,
+        trustScore: score,
+        previousTrustScore: previousScore,
+        trustLevel: score < 20 ? 'CRITICAL' as const : score < 40 ? 'HIGH_RISK' as const : score < 60 ? 'MEDIUM_RISK' as const : score < 80 ? 'LOW_RISK' as const : 'TRUSTED' as const,
+        avatarColor: 'avatarColor' in e ? e.avatarColor : ['#2563eb','#7c3aed','#d97706','#16a34a','#dc2626','#db2777','#0891b2','#0d9488','#ea580c','#4f46e5'][i % 10],
+        isInsider: 'isInsider' in e ? e.isInsider : (e as any).is_insider || false,
+        lastActive: 'lastActive' in e ? e.lastActive : 'Live',
+        twinDrift: 'twinDrift' in e ? e.twinDrift : (e as any).twin_drift || 0,
+      };
+    });
+  }, [liveEmployees, sim.day]);
 
-  // Use live alerts or mock
+  const modelMetrics = useMemo(() => {
+    if (overview) {
+      return {
+        f1: overview.model_f1,
+        precision: 0,
+        recall: 0,
+        aucRoc: overview.model_auc,
+        falsePositiveRate: overview.model_fpr,
+        alertsToday: overview.active_threats,
+        employeesMonitored: overview.total_employees,
+        threatsDetected: overview.active_threats,
+      };
+    }
+    const dayFactor = Math.sin(sim.day * 0.15);
+    const threats = Math.max(1, Math.round(5 + dayFactor * 3));
+    return {
+      f1: 0.945 + dayFactor * 0.005,
+      precision: 0.92,
+      recall: 0.91,
+      aucRoc: 0.983 + dayFactor * 0.003,
+      falsePositiveRate: 0.012 - dayFactor * 0.002,
+      alertsToday: threats,
+      employeesMonitored: 200,
+      threatsDetected: threats,
+    };
+  }, [overview, sim.day]);
+
   const alerts = useMemo(() => (
     liveAlerts.length > 0 ? liveAlerts.map((a, i) => ({
       id: `ALT_${i}`,
@@ -180,9 +151,9 @@ export default function Dashboard() {
       department: a.department,
       trustScore: Math.round(a.trust_score),
       previousTrustScore: Math.round(a.trust_score + 20),
-      trustLevel: (a.trust_score < 20 ? 'CRITICAL' : a.trust_score < 40 ? 'HIGH_RISK' : a.trust_score < 60 ? 'MEDIUM_RISK' : 'LOW_RISK') as any,
+      trustLevel: (a.trust_score < 20 ? 'CRITICAL' : a.trust_score < 40 ? 'HIGH_RISK' : a.trust_score < 60 ? 'MEDIUM_RISK' : 'LOW_RISK') as 'CRITICAL' | 'HIGH_RISK' | 'MEDIUM_RISK' | 'LOW_RISK',
       timestamp: new Date().toISOString(),
-      severity: a.severity as any,
+      severity: a.severity as 'CRITICAL' | 'HIGH' | 'MEDIUM',
       status: 'active' as const,
       riskFactors: a.top_features?.slice(0, 3).map(f => ({
         factor: f.feature.replace(/_/g, ' '),
@@ -198,10 +169,9 @@ export default function Dashboard() {
     })) : mockAlerts
   ), [liveAlerts]);
 
-  // Department stats from live analytics or fallback
   const departmentStats = useMemo(() => {
     if (analytics?.department_stats && analytics.department_stats.length > 0) {
-      const colors = ['#06b6d4', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#3b82f6', '#14b8a6'];
+      const colors = ['#2563eb', '#7c3aed', '#d97706', '#16a34a', '#db2777', '#0891b2', '#0d9488'];
       return analytics.department_stats.map((d, i) => ({
         name: d.department.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         employees: d.count,
@@ -213,310 +183,283 @@ export default function Dashboard() {
     return mockDeptStats;
   }, [analytics]);
 
-  // Activity feed from live API or mock
   const activityFeedData = useMemo(() => {
     if (liveActivity.length > 0) {
-      return liveActivity.slice(0, 10).map((evt, i) => ({
-        id: evt.event_id || `evt_${i}`,
-        timestamp: new Date(evt.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        employeeName: evt.emp_id,
-        icon: evt.is_after_hours ? '🌙' : evt.is_new_device ? '🔌' : evt.action_type.includes('usb') ? '💾' : evt.action_type.includes('email') ? '📧' : '🔍',
-        detail: `${evt.action_type.replace(/_/g, ' ')} on ${evt.system}`,
-        riskContribution: evt.is_after_hours ? 75 : evt.is_new_device ? 60 : evt.records_accessed > 50 ? 45 : 10,
-      }));
+      return liveActivity.slice(0, 10).map((evt, i) => {
+        const emp = employees.find(e => e.id === evt.emp_id);
+        const name = emp ? emp.name : evt.emp_id;
+        return {
+          id: evt.event_id || `evt_${i}`,
+          timestamp: new Date(evt.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          employeeId: evt.emp_id,
+          employeeName: name,
+          icon: evt.is_after_hours ? '🌙' : evt.is_new_device ? '🔌' : evt.action_type.includes('usb') ? '💾' : evt.action_type.includes('email') ? '📧' : '🔍',
+          detail: `${evt.action_type.replace(/_/g, ' ')} on ${evt.system}`,
+          riskContribution: evt.is_after_hours ? 75 : evt.is_new_device ? 60 : evt.records_accessed > 50 ? 45 : 10,
+        };
+      });
     }
     return mockActivityFeed;
-  }, [liveActivity]);
+  }, [liveActivity, employees]);
 
-  // Simulated clock from WebSocket (pre-formatted HH:MM:SS)
   const currentTime = sim.serverTime || '--:--:--';
-
   const sortedEmployees = [...employees].sort((a, b) => a.trustScore - b.trustScore);
   const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL');
 
   return (
-    <div className="app-layout">
-      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
-      <main className="main-content">
-        <div className="page-header">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="page-title">Command Center</h1>
-              <p className="page-subtitle">Real-time insider threat monitoring across all departments</p>
+    <AppShell
+      title="Overview"
+      subtitle="Insider threat monitoring across your organization"
+    >
+      <MockBanner show={isMock} />
+
+      <MissionTimeBar
+        serverTime={currentTime}
+        day={sim.day}
+        maxDay={sim.maxDay}
+        speed={sim.speed}
+        paused={sim.paused}
+        live={sim.live}
+        criticalCount={criticalAlerts.length}
+        isDemo={isMock}
+        onSetSpeed={sim.setSpeed}
+        onTogglePause={sim.togglePause}
+        onReset={sim.reset}
+        onJumpTo={sim.jumpTo}
+      />
+
+      <div className="metrics-grid">
+        <StatCard
+          label="Employees"
+          icon={Users}
+          variant="blue"
+          delay={0}
+          value={<AnimatedNumber value={modelMetrics.employeesMonitored} />}
+          hint={<><ArrowUpRight size={13} /> All departments</>}
+          hintTone="up"
+          href="/employees"
+        />
+        <StatCard
+          label="Active threats"
+          icon={AlertTriangle}
+          variant="red"
+          delay={0.06}
+          value={<AnimatedNumber value={modelMetrics.threatsDetected} />}
+          hint={<><ArrowDownRight size={13} /> {criticalAlerts.length} critical</>}
+          hintTone="down"
+          href="/alerts"
+        />
+        <StatCard
+          label="Model F1"
+          icon={Zap}
+          variant="violet"
+          delay={0.12}
+          value={<AnimatedNumber value={modelMetrics.f1 * 100} decimals={1} suffix="%" />}
+          hint={<><ArrowUpRight size={13} /> AUC {(modelMetrics.aucRoc * 100).toFixed(1)}%</>}
+          hintTone="up"
+          href="/analytics"
+        />
+        <StatCard
+          label="False positive rate"
+          icon={Shield}
+          variant="green"
+          delay={0.18}
+          value={<AnimatedNumber value={modelMetrics.falsePositiveRate * 100} decimals={1} suffix="%" />}
+          hint={<><ArrowUpRight size={13} /> Below 2% target</>}
+          hintTone="up"
+          href="/analytics"
+        />
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="dashboard-col">
+          {/* Employee Trust Heatmap */}
+          <Panel
+            title="Employee Trust Heatmap"
+            icon={Eye}
+            delay={0.1}
+            badge={<span className="text-xs text-muted">{employees.length} people · Day {sim.day}</span>}
+          >
+            <div className="heatmap-grid">
+              {sortedEmployees.map((emp) => {
+                const color = getTrustColor(emp.trustScore);
+                const initials = emp.name.split(' ').map(n => n[0]).join('');
+                return (
+                  <Link
+                    key={emp.id}
+                    href={`/employee/${emp.id}`}
+                    className={`heatmap-cell ${emp.trustScore < 30 ? 'pulse-alert' : ''}`}
+                    style={{
+                      background: `color-mix(in srgb, ${color} 18%, var(--surface))`,
+                      borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
+                      color: color,
+                      boxShadow: `0 0 8px ${color}15`,
+                      textDecoration: 'none',
+                    }}
+                    title={`${emp.name} — ${emp.trustScore}`}
+                  >
+                    <span className="heatmap-cell-initials">{initials}</span>
+                    <span className="heatmap-cell-score">{emp.trustScore}</span>
+                  </Link>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-16">
-              <SimulationControl
-                day={sim.day}
-                maxDay={sim.maxDay}
-                speed={sim.speed}
-                paused={sim.paused}
-                live={sim.live}
-                onSetSpeed={sim.setSpeed}
-                onTogglePause={sim.togglePause}
-                onReset={sim.reset}
-                onJumpTo={sim.jumpTo}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-                <Clock size={14} style={{ color: 'var(--cyan-500)' }} />
-                <span className="text-mono text-sm" style={{ color: 'var(--text-secondary)' }}>{currentTime} IST</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: 'var(--radius-md)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', animation: 'pulse-badge 1.5s infinite' }} />
-                <span className="text-sm font-semibold" style={{ color: '#ef4444' }}>{criticalAlerts.length} Critical</span>
-              </div>
+            <div className="legend-row">
+              {[
+                { label: 'Critical', color: '#e5625e' },
+                { label: 'High', color: '#f19c79' },
+                { label: 'Medium', color: '#ecd389' },
+                { label: 'Low', color: '#8eb897' },
+                { label: 'Trusted', color: '#6c809a' },
+              ].map(l => (
+                <span key={l.label} className="legend-item">
+                  <span className="legend-dot" style={{ background: l.color }} />
+                  {l.label}
+                </span>
+              ))}
             </div>
-          </div>
+          </Panel>
         </div>
 
-        <div className="page-content">
-          <MockBanner show={isMock} />
-
-          {/* ─── Metric Cards ─── */}
-          <div className="metrics-grid">
-            <div className="metric-card" style={{ '--metric-accent': '#06b6d4' } as React.CSSProperties}>
-              <div className="flex items-center justify-between mb-8">
-                <span className="metric-label">Employees Monitored</span>
-                <Users size={18} style={{ color: 'var(--cyan-500)', opacity: 0.6 }} />
-              </div>
-              <div className="metric-value accent-cyan"><AnimatedCounter value={modelMetrics.employeesMonitored} /></div>
-              <div className="metric-change positive">
-                <ArrowUpRight size={14} />
-                All departments active
-              </div>
-            </div>
-
-            <div className="metric-card" style={{ '--metric-accent': '#ef4444' } as React.CSSProperties}>
-              <div className="flex items-center justify-between mb-8">
-                <span className="metric-label">Active Threats</span>
-                <AlertTriangle size={18} style={{ color: '#ef4444', opacity: 0.6 }} />
-              </div>
-              <div className="metric-value" style={{ background: 'linear-gradient(135deg, #ef4444, #f97316)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                <AnimatedCounter value={modelMetrics.threatsDetected} />
-              </div>
-              <div className="metric-change negative">
-                <ArrowDownRight size={14} />
-                {criticalAlerts.length} critical alerts
-              </div>
-            </div>
-
-            <div className="metric-card" style={{ '--metric-accent': '#8b5cf6' } as React.CSSProperties}>
-              <div className="flex items-center justify-between mb-8">
-                <span className="metric-label">Model F1 Score</span>
-                <Zap size={18} style={{ color: '#8b5cf6', opacity: 0.6 }} />
-              </div>
-              <div className="metric-value"><AnimatedCounter value={modelMetrics.f1 * 100} decimals={1} suffix="%" /></div>
-              <div className="metric-change positive">
-                <ArrowUpRight size={14} />
-                AUC-ROC: {(modelMetrics.aucRoc * 100).toFixed(1)}%
-              </div>
-            </div>
-
-            <div className="metric-card" style={{ '--metric-accent': '#22c55e' } as React.CSSProperties}>
-              <div className="flex items-center justify-between mb-8">
-                <span className="metric-label">False Positive Rate</span>
-                <Shield size={18} style={{ color: '#22c55e', opacity: 0.6 }} />
-              </div>
-              <div className="metric-value"><AnimatedCounter value={modelMetrics.falsePositiveRate * 100} decimals={1} suffix="%" /></div>
-              <div className="metric-change positive">
-                <ArrowUpRight size={14} />
-                Below 2% target
-              </div>
-            </div>
-          </div>
-
-          {/* ─── Main Grid ─── */}
-          <div className="dashboard-grid">
-            {/* Left Column */}
-            <div className="flex flex-col gap-20">
-              {/* Trust Heatmap */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">
-                    <Eye size={16} style={{ color: 'var(--cyan-500)' }} />
-                    Employee Trust Heatmap
-                  </div>
-                  <span className="text-xs text-muted">{employees.length} employees • Day {sim.day}</span>
+        <div className="dashboard-col">
+          {/* Alerts Panel */}
+          <Panel
+            title="Alerts"
+            icon={AlertTriangle}
+            variant="danger"
+            delay={0.12}
+            noPadding
+            badge={<span className="badge badge--critical">{alerts.length} active</span>}
+          >
+            <div className="alerts-container">
+              {alerts.length === 0 ? (
+                <div className="empty-state">
+                  <Shield size={28} style={{ opacity: 0.25, margin: '0 auto 8px', display: 'block' }} />
+                  No alerts at day {sim.day}
                 </div>
-                <div className="card-body">
-                  <div className="heatmap-grid">
-                    {sortedEmployees.map((emp) => {
-                      const bg = getTrustColor(emp.trustScore);
-                      const initials = emp.name.split(' ').map(n => n[0]).join('');
-                      const isPulsing = emp.trustScore < 30;
-                      return (
-                        <div
-                          key={emp.id}
-                          className={`heatmap-cell ${isPulsing ? 'pulse-alert' : ''}`}
-                          style={{
-                            background: `${bg}22`,
-                            border: `1px solid ${bg}40`,
-                          }}
-                          title={`${emp.name} — Trust: ${emp.trustScore}`}
-                        >
-                          <span className="heatmap-cell-initials">{initials}</span>
-                          <span className="heatmap-cell-score" style={{ color: bg }}>{emp.trustScore}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between mt-16" style={{ padding: '0 4px' }}>
-                    <div className="flex items-center gap-12">
-                      {[
-                        { label: 'Critical', color: '#ef4444' },
-                        { label: 'High', color: '#f97316' },
-                        { label: 'Medium', color: '#eab308' },
-                        { label: 'Low', color: '#22c55e' },
-                        { label: 'Trusted', color: '#06b6d4' },
-                      ].map(l => (
-                        <div key={l.label} className="flex items-center gap-4">
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
-                          <span className="text-xs text-muted">{l.label}</span>
-                        </div>
-                      ))}
+              ) : alerts.map((alert) => (
+                <Link
+                  key={alert.id}
+                  href={`/employee/${alert.employeeId}`}
+                  className={`alert-item severity-${alert.severity}`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex items-center gap-8">
+                      <span className="alert-name">{alert.employeeName}</span>
+                      <span className={`badge badge--${alert.severity.toLowerCase()}`}>{alert.severity}</span>
                     </div>
+                    <div className="alert-meta">{alert.department} · {alert.riskFactors[0]?.factor}</div>
+                    {alert.intentChain && (
+                      <div className="alert-intent">
+                        {alert.intentChain.pattern} ({(alert.intentChain.confidence * 100).toFixed(0)}%)
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-
-              {/* Live Activity Feed */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">
-                    <Activity size={16} style={{ color: 'var(--cyan-500)' }} />
-                    Live Activity Feed
-                  </div>
-                  <span className="text-xs text-mono" style={{ color: activityMock ? '#f59e0b' : 'var(--trust-low)' }}>
-                    {activityMock ? '● MOCK' : '● STREAMING'}
+                  <span className="text-mono font-bold" style={{ color: getTrustColor(alert.trustScore) }}>
+                    {alert.trustScore}
                   </span>
-                </div>
-                <div className="card-body" style={{ padding: '8px 20px 20px' }}>
-                  <div className="feed-container">
-                    {activityFeedData.map((event) => {
-                      const riskLevel = event.riskContribution > 70 ? 'high' : event.riskContribution > 30 ? 'medium' : 'low';
-                      return (
-                        <div
-                          key={event.id}
-                          className="feed-item"
-                        >
-                          <span className="feed-time">{event.timestamp}</span>
-                          <span className="feed-icon">{event.icon}</span>
-                          <div className="feed-content">
-                            <span className="feed-employee">{event.employeeName}</span>{' '}
-                            <span className="feed-detail">{event.detail}</span>
-                          </div>
-                          <span className={`feed-risk ${riskLevel}`}>{event.riskContribution}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+                </Link>
+              ))}
             </div>
-
-            {/* Right Column */}
-            <div className="flex flex-col gap-20">
-              {/* Alert Queue */}
-              <div className="card card-glow-red">
-                <div className="card-header">
-                  <div className="card-title">
-                    <AlertTriangle size={16} style={{ color: '#ef4444' }} />
-                    Active Alerts
-                  </div>
-                  <span className="alert-severity-badge CRITICAL">{alerts.length} active</span>
-                </div>
-                <div className="card-body" style={{ padding: '8px 12px 12px' }}>
-                  {alerts.length === 0 ? (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                      <Shield size={24} style={{ opacity: 0.3, margin: '0 auto 8px' }} />
-                      No active alerts at Day {sim.day}
-                    </div>
-                  ) : alerts.map((alert) => (
-                    <div key={alert.id} className={`alert-item severity-${alert.severity}`}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="flex items-center gap-8">
-                          <span className={`alert-severity-badge ${alert.severity}`}>{alert.severity}</span>
-                          <span className="alert-name">{alert.employeeName}</span>
-                        </div>
-                        <div className="alert-meta">{alert.department} • {alert.riskFactors[0]?.factor}</div>
-                        {alert.intentChain && (
-                          <div className="alert-intent">
-                            ⛓ {alert.intentChain.pattern} ({(alert.intentChain.confidence * 100).toFixed(0)}%)
-                          </div>
-                        )}
-                      </div>
-                      <div className="alert-trust-change" style={{ color: getTrustColor(alert.trustScore) }}>
-                        {alert.trustScore}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Trust Distribution */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">
-                    <Shield size={16} style={{ color: 'var(--cyan-500)' }} />
-                    Trust Distribution
-                  </div>
-                </div>
-                <div className="card-body">
-                  <TrustDistribution employees={employees} />
-                  <div className="mt-16">
-                    {departmentStats.map((dept) => (
-                      <div key={dept.name} className="flex items-center justify-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <div className="flex items-center gap-8">
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: dept.color }} />
-                          <span className="text-sm">{dept.name}</span>
-                        </div>
-                        <div className="flex items-center gap-12">
-                          <span className="text-xs text-muted">{dept.employees} emp</span>
-                          <span className="text-sm font-semibold text-mono" style={{ color: getTrustColor(dept.avgTrust), minWidth: 40, textAlign: 'right' }}>
-                            {dept.avgTrust.toFixed(0)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Risk Employees */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">
-                    <TrendingDown size={16} style={{ color: '#f97316' }} />
-                    Highest Risk
-                  </div>
-                </div>
-                <div className="card-body" style={{ padding: '8px 20px 20px' }}>
-                  {sortedEmployees.slice(0, 5).map((emp, i) => (
-                    <div key={emp.id} className="flex items-center gap-12" style={{ padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div className="avatar avatar-sm" style={{ background: emp.avatarColor }}>
-                        {emp.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="text-sm font-semibold truncate">{emp.name}</div>
-                        <div className="text-xs text-muted">{emp.department}</div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                        <span className="text-mono font-bold text-sm" style={{ color: getTrustColor(emp.trustScore) }}>
-                          {emp.trustScore}
-                        </span>
-                        {emp.twinDrift !== undefined && emp.twinDrift > 0.01 && (
-                          <span className="text-xs" style={{ color: '#f59e0b', fontWeight: 600 }}>
-                            drift: {(emp.twinDrift * 100).toFixed(1)}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          </Panel>
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Grid 2: Secondary summaries (Timeline Feed, Department stats, Highest Risk) */}
+      <div className="dashboard-grid-3 mt-24">
+        {/* Trust by Department */}
+        <Panel title="Trust by department" icon={Shield} delay={0.15}>
+          <TrustDistribution employees={employees} />
+          <div className="mt-16">
+            {departmentStats.map((dept) => {
+              const c = getTrustColor(dept.avgTrust);
+              return (
+                <div key={dept.name} className="dept-row">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-8">
+                      <span className="legend-dot" style={{ background: dept.color }} />
+                      <span className="text-sm font-semibold">{dept.name}</span>
+                    </div>
+                    <div className="flex items-center gap-12">
+                      <span className="text-xs text-muted">{dept.employees}</span>
+                      <span className="text-mono font-semibold text-sm" style={{ color: c }}>{dept.avgTrust.toFixed(0)}</span>
+                    </div>
+                  </div>
+                  <div className="dept-progress-bar">
+                    <div className="dept-progress-fill" style={{ width: `${dept.avgTrust}%`, background: c }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+
+        {/* Highest Risk */}
+        <Panel title="Highest risk" icon={TrendingDown} delay={0.18} noPadding>
+          {sortedEmployees.slice(0, 5).map((emp) => (
+            <Link
+              key={emp.id}
+              href={`/employee/${emp.id}`}
+              className="risk-row"
+              style={{ textDecoration: 'none' }}
+            >
+              <div className="avatar avatar-sm" style={{ background: emp.avatarColor }}>
+                {emp.name.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="text-sm font-semibold truncate">{emp.name}</div>
+                <div className="text-xs text-muted">{emp.department}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="text-mono font-bold text-sm" style={{ color: getTrustColor(emp.trustScore) }}>
+                  {emp.trustScore}
+                </div>
+                {emp.twinDrift > 0.01 && (
+                  <div className="text-xs text-muted">drift {(emp.twinDrift * 100).toFixed(1)}%</div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </Panel>
+
+        {/* Activity Feed Panel */}
+        <Panel
+          title="Activity feed"
+          icon={Activity}
+          delay={0.22}
+          noPadding
+          badge={
+            <span className={`pill ${activityMock ? '' : 'pill--live'}`}>
+              {!activityMock && <span className="pill-dot" />}
+              {activityMock ? 'Demo' : 'Live'}
+            </span>
+          }
+        >
+          <div className="feed-container">
+            {activityFeedData.map((event) => {
+              const risk = event.riskContribution > 70 ? 'high' : event.riskContribution > 30 ? 'medium' : 'low';
+              const targetEmpId = event.employeeId || event.employeeName;
+              return (
+                <Link
+                  key={event.id}
+                  href={`/employee/${targetEmpId}`}
+                  className="feed-item"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <span className="feed-time">{event.timestamp}</span>
+                  <span className="feed-icon-bubble">{event.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span className="feed-employee font-semibold">{event.employeeName}</span>{' '}
+                    <span className="feed-detail">{event.detail}</span>
+                  </div>
+                  <span className={`feed-risk ${risk}`}>{event.riskContribution}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
+    </AppShell>
   );
 }

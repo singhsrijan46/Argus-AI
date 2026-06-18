@@ -44,23 +44,13 @@ export default function SimulationControl({
   if (!live) return null;
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '6px 14px',
-      borderRadius: 'var(--radius-lg)',
-      background: 'rgba(15, 23, 42, 0.7)',
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(139, 92, 246, 0.2)',
-      fontSize: 11,
-      fontFamily: 'Inter, sans-serif',
-      position: 'relative',
-    }}>
+    <div className="sim-control">
       {/* Day Counter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Calendar size={12} style={{ color: '#8b5cf6' }} />
-        <span style={{ color: '#94a3b8', fontWeight: 600 }}>
-          Day <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13 }}>{day}</span>
-          <span style={{ color: '#475569' }}>/{maxDay}</span>
+        <Calendar size={12} style={{ color: 'var(--accent-text)' }} />
+        <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+          Day <span style={{ color: 'var(--text)', fontWeight: 700 }}>{day}</span>
+          <span style={{ color: 'var(--text-muted)' }}>/{maxDay}</span>
         </span>
       </div>
 
@@ -75,7 +65,7 @@ export default function SimulationControl({
       </span>
 
       {/* Divider */}
-      <div style={{ width: 1, height: 16, background: 'rgba(100,116,139,0.3)' }} />
+      <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
 
       {/* Progress Bar (clickable scrubber) */}
       <div
@@ -130,7 +120,7 @@ export default function SimulationControl({
       </div>
 
       {/* Divider */}
-      <div style={{ width: 1, height: 16, background: 'rgba(100,116,139,0.3)' }} />
+      <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
 
       {/* Play/Pause */}
       <button

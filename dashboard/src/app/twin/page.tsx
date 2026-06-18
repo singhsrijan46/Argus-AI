@@ -1,21 +1,19 @@
 'use client';
 
-import Sidebar from '@/components/Sidebar';
+import AppShell from '@/components/AppShell';
 import MockBanner from '@/components/MockBanner';
 import SimulationControl from '@/components/SimulationControl';
 import {
-  employees as mockEmployeesData, sampleTwinProfile, getTrustColor,
+  employees as mockEmployeesData, getTrustColor,
   type Employee,
 } from '@/lib/mockData';
 import { useEmployees, useSimulation } from '@/lib/hooks';
-import { Eye, Fingerprint, Waves, ArrowRight } from 'lucide-react';
+import {
+  ArrowRight, BarChart3, Clock3, Fingerprint, Gauge, GitBranch,
+  ShieldCheck, TrendingUp,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import {
-  Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend,
-} from 'chart.js';
-
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 export default function TwinPage() {
   const sim = useSimulation();
@@ -34,7 +32,7 @@ export default function TwinPage() {
           trustScore: Math.round(e.trust_score ?? 95),
           previousTrustScore: Math.round((e.trust_score ?? 95) + 5),
           trustLevel: (e.trust_score ?? 95) < 20 ? 'CRITICAL' as const : (e.trust_score ?? 95) < 40 ? 'HIGH_RISK' as const : (e.trust_score ?? 95) < 60 ? 'MEDIUM_RISK' as const : (e.trust_score ?? 95) < 80 ? 'LOW_RISK' as const : 'TRUSTED' as const,
-          avatarColor: ['#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#3b82f6','#14b8a6','#f97316','#6366f1'][i % 10],
+          avatarColor: ['#475569','#2563eb','#b45309','#15803d','#b91c1c','#7c3aed','#64748b','#0f766e','#c2410c','#4f46e5'][i % 10],
           isInsider: e.is_insider || false,
           lastActive: 'Live',
           twinDrift: e.twin_drift || 0,
@@ -44,172 +42,167 @@ export default function TwinPage() {
 
   const highRiskEmployees = employees.filter(e => e.twinDrift > 0.3).sort((a, b) => b.twinDrift - a.twinDrift);
   const normalEmployees = employees.filter(e => e.twinDrift <= 0.3).sort((a, b) => b.twinDrift - a.twinDrift);
+  const averageDrift = employees.length
+    ? employees.reduce((sum, emp) => sum + emp.twinDrift, 0) / employees.length
+    : 0;
+
+  const twinDimensions = [
+    { icon: Clock3, label: 'Circadian profile', dim: '8 dim', desc: 'Login rhythm and shift timing' },
+    { icon: GitBranch, label: 'Access graph', dim: '16 dim', desc: 'Systems and resource pathways' },
+    { icon: BarChart3, label: 'Behavior baseline', dim: '94 dim', desc: 'Rolling feature averages' },
+    { icon: TrendingUp, label: 'Drift velocity', dim: '1 dim', desc: 'Rate of behavioral change' },
+  ];
 
   return (
-    <div className="app-layout">
-      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
-      <main className="main-content">
-        <div className="page-header">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="page-title">Digital Employee Twins</h1>
-              <p className="page-subtitle">Behavioral genome comparison — expected vs actual behavior profiles</p>
-            </div>
-            <SimulationControl
-              day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
-              paused={sim.paused} live={sim.live}
-              onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
-              onReset={sim.reset} onJumpTo={sim.jumpTo}
-            />
+    <AppShell
+      title="Digital twins"
+      subtitle="Expected vs actual behavior profiles"
+      headerExtra={
+        <SimulationControl
+          day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+          paused={sim.paused} live={sim.live}
+          onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+          onReset={sim.reset} onJumpTo={sim.jumpTo}
+        />
+      }
+    >
+      <MockBanner show={isMock} />
+
+      <section className="twin-hero mb-24">
+        <div className="twin-hero-main">
+          <div className="twin-hero-copy">
+            <div className="twin-kicker">Behavior model</div>
+            <h2>What is a Digital Employee Twin?</h2>
+            <p>
+              A digital twin is a compact baseline of how an employee normally works. It compares current
+              activity against expected login timing, access patterns, data movement, and drift speed so
+              unusual changes surface early.
+            </p>
+          </div>
+          <div className="twin-hero-score">
+            <span>Average drift</span>
+            <strong>{averageDrift.toFixed(2)}</strong>
+            <small>Day {sim.day}</small>
           </div>
         </div>
-        <div className="page-content">
-          <MockBanner show={isMock} />
 
-          {/* Concept Explanation */}
-          <div className="card card-glow-cyan mb-24">
-            <div className="card-body" style={{ padding: '24px 28px' }}>
-              <div className="flex items-center gap-16">
-                <div style={{
-                  width: 56, height: 56, borderRadius: 'var(--radius-lg)',
-                  background: 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(139,92,246,0.15))',
-                  border: '1px solid rgba(6,182,212,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Fingerprint size={28} style={{ color: 'var(--cyan-400)' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>What is a Digital Employee Twin?</div>
-                  <div className="text-sm text-muted" style={{ lineHeight: 1.6 }}>
-                    A <strong style={{ color: 'var(--cyan-400)' }}>Behavioral Genome</strong> — a 119-dimensional compressed representation
-                    of each employee&apos;s normal behavior. It captures circadian rhythms (via FFT), access topology,
-                    data volume patterns, and behavioral velocity. Current activity is continuously compared against
-                    the twin to detect deviations.
-                  </div>
-                </div>
+        <div className="twin-dimension-grid">
+          {twinDimensions.map(({ icon: Icon, label, dim, desc }) => (
+            <div key={label} className="twin-dimension-card">
+              <div className="twin-dimension-icon">
+                <Icon size={17} />
               </div>
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginTop: 20,
-              }}>
-                {[
-                  { icon: '🕐', label: 'Circadian Profile', dim: '8-dim', desc: 'FFT of login patterns' },
-                  { icon: '🔗', label: 'Access Embedding', dim: '16-dim', desc: 'Resource access graph' },
-                  { icon: '📊', label: 'Behavioral Baseline', dim: '94-dim', desc: 'Rolling μ/σ of 47 features' },
-                  { icon: '📈', label: 'Drift Velocity', dim: '1-dim', desc: 'Rate of change' },
-                ].map((c, i) => (
-                  <div key={i} style={{
-                    padding: '14px 16px', borderRadius: 'var(--radius-md)',
-                    background: 'rgba(15,23,42,0.4)', border: '1px solid var(--border-subtle)',
-                  }}>
-                    <div className="flex items-center gap-8 mb-8">
-                      <span style={{ fontSize: 18 }}>{c.icon}</span>
-                      <span className="text-sm font-semibold">{c.label}</span>
-                    </div>
-                    <div className="text-mono text-xs" style={{ color: 'var(--cyan-400)' }}>{c.dim}</div>
-                    <div className="text-xs text-muted mt-4">{c.desc}</div>
-                  </div>
-                ))}
+              <div>
+                <div className="twin-dimension-title">{label}</div>
+                <div className="twin-dimension-meta">{dim}</div>
+                <div className="twin-dimension-desc">{desc}</div>
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+      </section>
 
-          {/* Drifting Employees */}
-          <div className="flex items-center gap-8 mb-16">
-            <Waves size={16} style={{ color: '#ef4444' }} />
-            <span style={{ fontSize: 15, fontWeight: 700 }}>High Drift Employees</span>
-            <span className="text-xs text-muted">— Significant behavioral deviation from twin · Day {sim.day}</span>
-          </div>
+      <div className="twin-summary-grid mb-24">
+        <div className="twin-summary-card">
+          <ShieldCheck size={18} />
+          <span>Stable twins</span>
+          <strong>{normalEmployees.length}</strong>
+        </div>
+        <div className="twin-summary-card twin-summary-card--warn">
+          <Gauge size={18} />
+          <span>High drift</span>
+          <strong>{highRiskEmployees.length}</strong>
+        </div>
+        <div className="twin-summary-card">
+          <Fingerprint size={18} />
+          <span>Profiles monitored</span>
+          <strong>{employees.length}</strong>
+        </div>
+      </div>
 
-          {highRiskEmployees.length === 0 ? (
-            <div className="card mb-24" style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <Eye size={28} style={{ color: '#22c55e', opacity: 0.4, margin: '0 auto 12px' }} />
-              <div className="text-sm" style={{ color: '#94a3b8' }}>
-                No high-drift employees at Day {sim.day}. Behavioral patterns are within baseline norms.
-              </div>
-              <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-                Drift will increase as insider threat scenarios ramp up past Day 40.
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginBottom: 32 }}>
-              {highRiskEmployees.map((emp) => {
-                const color = getTrustColor(emp.trustScore);
-                const initials = emp.name.split(' ').map(n => n[0]).join('');
-                return (
-                  <Link href={`/employee/${emp.id}`} key={emp.id} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div className="card" style={{
-                      padding: 20, borderLeft: `3px solid ${color}`,
-                      transition: 'all var(--transition-base)',
-                    }}>
-                      <div className="flex items-center gap-12 mb-16">
-                        <div className="avatar" style={{ background: emp.avatarColor }}>{initials}</div>
-                        <div style={{ flex: 1 }}>
-                          <div className="font-semibold">{emp.name}</div>
-                          <div className="text-xs text-muted">{emp.department} • {emp.role}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="text-mono font-bold" style={{ color, fontSize: 20 }}>{emp.trustScore}</div>
-                        </div>
-                      </div>
-                      <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-xs text-muted">Twin Drift</span>
-                          <span className="text-mono text-xs font-bold" style={{ color: '#ef4444' }}>{emp.twinDrift.toFixed(2)}</span>
-                        </div>
-                        <div style={{ height: 4, borderRadius: 2, background: 'rgba(148,163,184,0.08)' }}>
-                          <div style={{
-                            height: '100%', borderRadius: 2, width: `${Math.min(emp.twinDrift * 100, 100)}%`,
-                            background: `linear-gradient(90deg, #f97316, #ef4444)`,
-                            transition: 'width 0.6s ease',
-                          }} />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted">trust: {emp.trustScore}</span>
-                        <ArrowRight size={14} style={{ color: 'var(--text-dim)' }} />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+      <div className="twin-section-heading mb-16">
+        <div>
+          <h3>High Drift Employees</h3>
+          <p>Significant behavioral deviation from baseline · Day {sim.day}</p>
+        </div>
+      </div>
 
-          {/* Normal Employees Grid */}
-          <div className="flex items-center gap-8 mb-16">
-            <Eye size={16} style={{ color: 'var(--cyan-500)' }} />
-            <span style={{ fontSize: 15, fontWeight: 700 }}>Stable Twins</span>
-            <span className="text-xs text-muted">— Behavior within expected range</span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            {normalEmployees.slice(0, 12).map((emp) => {
-              const color = getTrustColor(emp.trustScore);
-              const initials = emp.name.split(' ').map(n => n[0]).join('');
-              return (
-                <Link href={`/employee/${emp.id}`} key={emp.id} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div className="card" style={{ padding: 14 }}>
-                    <div className="flex items-center gap-10">
-                      <div className="avatar avatar-sm" style={{ background: emp.avatarColor }}>{initials}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="text-sm font-semibold truncate">{emp.name}</div>
-                        <div className="text-xs text-muted">{emp.department}</div>
-                      </div>
-                      <div className="text-mono text-sm font-bold" style={{ color }}>{emp.trustScore}</div>
-                    </div>
-                    <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: 'rgba(148,163,184,0.06)' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2, width: `${Math.min(emp.twinDrift * 100, 100)}%`,
-                        background: emp.twinDrift < 0.1 ? '#22c55e' : '#eab308',
-                      }} />
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+      {highRiskEmployees.length === 0 ? (
+        <div className="twin-empty mb-24">
+          <ShieldCheck size={24} />
+          <div>
+            <strong>No high-drift employees at Day {sim.day}</strong>
+            <p>Behavioral patterns are within expected baseline ranges.</p>
           </div>
         </div>
-      </main>
-    </div>
+      ) : (
+        <div className="twin-risk-grid">
+          {highRiskEmployees.map((emp) => {
+            const color = getTrustColor(emp.trustScore);
+            const initials = emp.name.split(' ').map(n => n[0]).join('');
+            return (
+              <Link href={`/employee/${emp.id}`} key={emp.id} className="twin-risk-card">
+                <div className="twin-employee-row">
+                  <div className="avatar" style={{ background: emp.avatarColor }}>{initials}</div>
+                  <div className="twin-employee-copy">
+                    <div className="twin-employee-name">{emp.name}</div>
+                    <div className="twin-employee-meta">{emp.department} · {emp.role}</div>
+                  </div>
+                  <div className="twin-trust-value" style={{ color }}>{emp.trustScore}</div>
+                </div>
+                <div className="twin-drift-block">
+                  <div className="twin-drift-label">
+                    <span>Twin drift</span>
+                    <strong>{emp.twinDrift.toFixed(2)}</strong>
+                  </div>
+                  <div className="twin-drift-track">
+                    <span
+                      className="twin-drift-fill twin-drift-fill--risk"
+                      style={{ width: `${Math.min(emp.twinDrift * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="twin-card-footer">
+                  <span>View employee profile</span>
+                  <ArrowRight size={14} />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="twin-section-heading mb-16">
+        <div>
+          <h3>Stable Twins</h3>
+          <p>Behavior within expected range</p>
+        </div>
+      </div>
+
+      <div className="twin-stable-grid">
+        {normalEmployees.slice(0, 12).map((emp) => {
+          const color = getTrustColor(emp.trustScore);
+          const initials = emp.name.split(' ').map(n => n[0]).join('');
+          return (
+            <Link href={`/employee/${emp.id}`} key={emp.id} className="twin-stable-card">
+              <div className="twin-employee-row">
+                <div className="avatar avatar-sm" style={{ background: emp.avatarColor }}>{initials}</div>
+                <div className="twin-employee-copy">
+                  <div className="twin-employee-name truncate">{emp.name}</div>
+                  <div className="twin-employee-meta">{emp.department}</div>
+                </div>
+                <div className="twin-trust-value twin-trust-value--sm" style={{ color }}>{emp.trustScore}</div>
+              </div>
+              <div className="twin-drift-track twin-drift-track--small">
+                <span
+                  className="twin-drift-fill"
+                  style={{ width: `${Math.min(emp.twinDrift * 100, 100)}%` }}
+                />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </AppShell>
   );
 }

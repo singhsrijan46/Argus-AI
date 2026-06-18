@@ -185,18 +185,93 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
     };
   }, [connect]);
 
-  // ─── Actions sent over WebSocket ───
+  // Local ticker for Simulation Time when offline / in Demo mode
+  useEffect(() => {
+    if (connected) return;
+
+    const interval = setInterval(() => {
+      setServerTime(prev => {
+        if (!prev) return new Date().toISOString();
+        try {
+          const d = new Date(prev);
+          if (!paused) {
+            // Advance simulation time by speed seconds
+            d.setSeconds(d.getSeconds() + speed);
+          }
+          return d.toISOString();
+        } catch {
+          return new Date().toISOString();
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [connected, paused, speed]);
+
+  // Local ticker for Simulation Day when offline / in Demo mode
+  useEffect(() => {
+    if (connected || paused) return;
+
+    // 1 day = 10000ms / speed (e.g. at 10x speed, 1 day = 1s)
+    const dayIntervalMs = Math.max(800, 10000 / speed);
+    const dayInterval = setInterval(() => {
+      setDay(prev => {
+        if (prev >= maxDay) return 5; // wrap around
+        return prev + 1;
+      });
+    }, dayIntervalMs);
+
+    return () => clearInterval(dayInterval);
+  }, [connected, paused, speed, maxDay]);
+
+  // ─── Actions sent over WebSocket or run locally ───
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
 
-  const setSpeed = useCallback((s: number) => send({ action: 'set_speed', speed: s }), [send]);
-  const togglePause = useCallback(() => send({ action: 'pause' }), [send]);
-  const reset = useCallback(() => send({ action: 'reset' }), [send]);
-  const jumpTo = useCallback((d: number) => send({ action: 'jump', day: d }), [send]);
-  const tick = useCallback(() => send({ action: 'tick' }), [send]);
+  const setSpeed = useCallback((s: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send({ action: 'set_speed', speed: s });
+    } else {
+      setSpeedState(s);
+    }
+  }, [send]);
+
+  const togglePause = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send({ action: 'pause' });
+    } else {
+      setPaused(prev => !prev);
+    }
+  }, [send]);
+
+  const reset = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send({ action: 'reset' });
+    } else {
+      setDay(30);
+      setServerTime(new Date(2024, 0, 5 + 30).toISOString());
+    }
+  }, [send]);
+
+  const jumpTo = useCallback((d: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send({ action: 'jump', day: d });
+    } else {
+      setDay(d);
+      setServerTime(new Date(2024, 0, 5 + d).toISOString());
+    }
+  }, [send]);
+
+  const tick = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send({ action: 'tick' });
+    } else {
+      setDay(prev => Math.min(maxDay, prev + 1));
+    }
+  }, [send, maxDay]);
 
   const value: SimContextValue = {
     connected, serverTime,

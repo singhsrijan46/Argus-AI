@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
-import Sidebar from '@/components/Sidebar';
+import { use, useMemo } from 'react';
+import AppShell from '@/components/AppShell';
 import MockBanner from '@/components/MockBanner';
 import SimulationControl from '@/components/SimulationControl';
 import GeminiReport from '@/components/GeminiReport';
@@ -12,7 +12,7 @@ import {
 import { useEmployee, useShapExplanation, useSimulation, useActivity } from '@/lib/hooks';
 import {
   ArrowLeft, Shield, AlertTriangle, Clock, Fingerprint,
-  Cpu, TrendingDown, Eye, Zap, Brain,
+  Cpu, TrendingDown, Eye, Zap, Brain, Activity, Database, HardDrive, Monitor, Network,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -122,13 +122,41 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
       }))
     : sampleTwinProfile.dimensions;
 
-  const decay = liveTimeline.length > 5
-    ? liveTimeline.map(t => ({
+  const decay = useMemo(() => {
+    if (liveTimeline.length > 5) {
+      const visibleTimeline = liveTimeline
+        .filter(t => t.day_index <= sim.day)
+        .slice(-14);
+      const timelineWindow = visibleTimeline.length > 1 ? visibleTimeline : liveTimeline.slice(0, Math.min(14, liveTimeline.length));
+
+      return timelineWindow.map((t, index) => ({
         time: `Day ${t.day_index}`,
         trustScore: Math.round(t.trust_score),
+        riskScore: Math.round(t.risk_score),
         event: t.risk_score > 70 ? `Risk spike: ${Math.round(t.risk_score)}` : null,
-      }))
-    : privilegeDecayTimeline;
+        live: index === timelineWindow.length - 1,
+      }));
+    }
+
+    const dayWave = Math.sin(sim.day * 0.2);
+    const currentTrust = trustScore;
+    return privilegeDecayTimeline.map((point, index) => {
+      const progress = index / Math.max(privilegeDecayTimeline.length - 1, 1);
+      const baseline = 94 - progress * (94 - currentTrust);
+      const movement = Math.sin(sim.day * 0.18 + index * 0.55) * (1.4 + progress * 2.2);
+      const trust = Math.max(8, Math.min(98, baseline + movement + dayWave * 1.2));
+      const event = progress > 0.65 && trust < 55
+        ? point.event?.replace('ALERT: ', '') || `Trust pressure: ${Math.round(100 - trust)}`
+        : point.event;
+      return {
+        ...point,
+        trustScore: Math.round(trust),
+        riskScore: Math.round(100 - trust),
+        event,
+        live: index === privilegeDecayTimeline.length - 1,
+      };
+    });
+  }, [liveTimeline, sim.day, trustScore]);
 
   // Activity feed from API or fallback
   const activityData = liveActivity.length > 0
@@ -155,20 +183,61 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
 
   if (!mockEmp && !liveDetail) {
     return (
-      <div className="app-layout">
-        <Sidebar />
-        <main className="main-content">
-          <div className="page-content" style={{ padding: 60, textAlign: 'center' }}>
-            <h2>Employee not found</h2>
-            <Link href="/employees" style={{ marginTop: 16, display: 'inline-block' }}>← Back to employees</Link>
-          </div>
-        </main>
-      </div>
+      <AppShell title="Employee" subtitle="Not found">
+        <div className="empty-state" style={{ padding: 60 }}>
+          <h2 style={{ marginBottom: 12 }}>Employee not found</h2>
+          <Link href="/employees">← Back to employees</Link>
+        </div>
+      </AppShell>
     );
   }
 
   const color = getTrustColor(trustScore);
   const trustLevel = getTrustLevel(trustScore);
+  const activeTwinDrift = twinDrift || Math.min(1, twinDimensions.reduce((sum, d) => sum + Math.abs(d.actual - d.expected), 0) / (twinDimensions.length * 100));
+
+  const genomeRows = [
+    {
+      label: 'Login time',
+      icon: Clock,
+      expected: sampleTwinProfile.expectedLogin,
+      actual: sampleTwinProfile.actualLogin,
+      delta: sampleTwinProfile.expectedLogin === sampleTwinProfile.actualLogin ? 'Aligned' : 'Changed',
+      severity: sampleTwinProfile.expectedLogin === sampleTwinProfile.actualLogin ? 'low' : 'medium',
+    },
+    {
+      label: 'Records accessed',
+      icon: Database,
+      expected: `${sampleTwinProfile.expectedRecords}/day`,
+      actual: `${sampleTwinProfile.actualRecords}/day`,
+      delta: `${Math.round(sampleTwinProfile.actualRecords / sampleTwinProfile.expectedRecords)}x baseline`,
+      severity: sampleTwinProfile.actualRecords > sampleTwinProfile.expectedRecords * 5 ? 'high' : 'medium',
+    },
+    {
+      label: 'Data volume',
+      icon: HardDrive,
+      expected: `${sampleTwinProfile.expectedDataVolume} MB`,
+      actual: `${sampleTwinProfile.actualDataVolume} MB`,
+      delta: `${Math.round(sampleTwinProfile.actualDataVolume / sampleTwinProfile.expectedDataVolume)}x baseline`,
+      severity: sampleTwinProfile.actualDataVolume > sampleTwinProfile.expectedDataVolume * 5 ? 'high' : 'medium',
+    },
+    {
+      label: 'Devices used',
+      icon: Monitor,
+      expected: String(sampleTwinProfile.expectedDevices),
+      actual: String(sampleTwinProfile.actualDevices),
+      delta: sampleTwinProfile.actualDevices > sampleTwinProfile.expectedDevices ? 'New device' : 'Aligned',
+      severity: sampleTwinProfile.actualDevices > sampleTwinProfile.expectedDevices ? 'medium' : 'low',
+    },
+    {
+      label: 'Systems touched',
+      icon: Network,
+      expected: sampleTwinProfile.expectedSystems.join(', '),
+      actual: sampleTwinProfile.actualSystems.join(', '),
+      delta: `${sampleTwinProfile.actualSystems.length - sampleTwinProfile.expectedSystems.length} extra`,
+      severity: sampleTwinProfile.actualSystems.length > sampleTwinProfile.expectedSystems.length ? 'high' : 'low',
+    },
+  ];
 
   // ─── Radar Chart (Twin Comparison) ───
   const radarData = {
@@ -232,26 +301,31 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
   };
 
   // ─── Privilege Decay Chart ───
+  const latestDecay = decay[decay.length - 1];
+  const previousDecay = decay[decay.length - 2];
+  const trustDelta = latestDecay && previousDecay ? latestDecay.trustScore - previousDecay.trustScore : 0;
+
   const decayData = {
     labels: decay.map(d => d.time),
     datasets: [{
       label: 'Trust Score',
       data: decay.map(d => d.trustScore),
-      borderColor: '#06b6d4',
+      borderColor: '#2563eb',
       backgroundColor: (ctx: any) => {
-        if (!ctx.chart?.ctx) return 'rgba(6, 182, 212, 0.1)';
+        if (!ctx.chart?.ctx) return 'rgba(37, 99, 235, 0.1)';
         const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height || 300);
-        gradient.addColorStop(0, 'rgba(6, 182, 212, 0.2)');
-        gradient.addColorStop(0.5, 'rgba(6, 182, 212, 0.05)');
-        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.05)');
+        gradient.addColorStop(0, 'rgba(37, 99, 235, 0.18)');
+        gradient.addColorStop(0.55, 'rgba(37, 99, 235, 0.05)');
+        gradient.addColorStop(1, 'rgba(185, 28, 28, 0.05)');
         return gradient;
       },
       fill: true,
       tension: 0.35,
       borderWidth: 2.5,
-      pointRadius: decay.map(d => d.event ? 5 : 0),
-      pointBackgroundColor: decay.map(d => d.trustScore < 30 ? '#ef4444' : d.trustScore < 60 ? '#eab308' : '#06b6d4'),
-      pointBorderColor: 'rgba(0,0,0,0.4)',
+      pointRadius: decay.map(d => d.live ? 6 : d.event ? 4 : 0),
+      pointHoverRadius: 7,
+      pointBackgroundColor: decay.map(d => d.live ? '#2563eb' : d.trustScore < 30 ? '#b91c1c' : d.trustScore < 60 ? '#b45309' : '#15803d'),
+      pointBorderColor: 'var(--surface)',
       pointBorderWidth: 2,
     }],
   };
@@ -259,23 +333,35 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
   const decayOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 700, easing: 'easeOutQuart' as const },
+    interaction: { intersect: false, mode: 'index' as const },
     scales: {
-      y: { min: 0, max: 100, grid: { color: 'rgba(148, 163, 184, 0.05)' }, ticks: { color: '#64748b', font: { size: 11, family: 'JetBrains Mono' } } },
-      x: { grid: { color: 'rgba(148, 163, 184, 0.03)' }, ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } } },
+      y: {
+        min: 0,
+        max: 100,
+        grid: { color: 'rgba(120, 113, 108, 0.08)' },
+        border: { display: false },
+        ticks: { color: '#78716c', font: { size: 11, family: 'IBM Plex Mono' } },
+      },
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { color: '#78716c', font: { size: 10, family: 'IBM Plex Mono' } },
+      },
     },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        titleFont: { family: 'Inter', size: 12 },
-        bodyFont: { family: 'Inter', size: 11 },
-        borderColor: 'rgba(148, 163, 184, 0.15)',
+        backgroundColor: 'rgba(28, 25, 23, 0.96)',
+        titleFont: { family: 'DM Sans', size: 12 },
+        bodyFont: { family: 'DM Sans', size: 11 },
+        borderColor: 'rgba(214, 211, 209, 0.18)',
         borderWidth: 1, padding: 12, cornerRadius: 8,
         callbacks: {
           afterBody: (items: any) => {
             const idx = items[0]?.dataIndex;
             const point = decay[idx];
-            return point?.event ? `\n📌 ${point.event}` : '';
+            return point?.event ? `\n${point.event}` : '';
           },
         },
       },
@@ -283,25 +369,24 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
   };
 
   return (
-    <div className="app-layout">
-      <Sidebar day={sim.day} maxDay={sim.maxDay} live={sim.live} />
-      <main className="main-content">
-        <div className="page-header">
-          <div className="flex items-center justify-between">
-            <Link href="/employees" className="flex items-center gap-4 text-sm text-muted" style={{ textDecoration: 'none' }}>
-              <ArrowLeft size={14} /> Back to Employees
-            </Link>
-            <SimulationControl
-              day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
-              paused={sim.paused} live={sim.live}
-              onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
-              onReset={sim.reset} onJumpTo={sim.jumpTo}
-            />
-          </div>
-        </div>
-
-        <div className="page-content" style={{ paddingTop: 0 }}>
-          <MockBanner show={isMock} />
+    <AppShell
+      title={empName}
+      subtitle={`${empRole} · ${empDept}`}
+      headerExtra={
+        <>
+          <Link href="/employees" className="pill" style={{ textDecoration: 'none' }}>
+            <ArrowLeft size={13} /> Back
+          </Link>
+          <SimulationControl
+            day={sim.day} maxDay={sim.maxDay} speed={sim.speed}
+            paused={sim.paused} live={sim.live}
+            onSetSpeed={sim.setSpeed} onTogglePause={sim.togglePause}
+            onReset={sim.reset} onJumpTo={sim.jumpTo}
+          />
+        </>
+      }
+    >
+      <MockBanner show={isMock} />
           {/* Employee Header Card */}
           <div className={`card ${isHighRisk ? 'card-glow-red' : 'card-glow-cyan'}`} style={{ marginBottom: 24 }}>
             <div style={{ padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -405,63 +490,74 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
           />
 
           {/* Behavioral Genome Deviation */}
-          <div className="card mt-24">
-            <div className="card-header">
-              <div className="card-title">
-                <Cpu size={16} style={{ color: 'var(--cyan-500)' }} />
-                Behavioral Genome Deviation
+          <div className="employee-genome mt-24">
+            <div className="employee-genome-header">
+              <div>
+                <div className="employee-detail-kicker">Twin deviation</div>
+                <h2>Behavioral Genome Deviation</h2>
+                <p>Expected baseline compared with the latest observed behavior.</p>
               </div>
-              <span className="text-xs text-mono" style={{ color: twinDrift > 0.5 ? '#ef4444' : '#22c55e' }}>
-                Drift: {twinDrift.toFixed(2)}
-              </span>
+              <div className={`employee-drift-pill ${activeTwinDrift > 0.45 ? 'employee-drift-pill--risk' : ''}`}>
+                <Cpu size={14} />
+                Drift {activeTwinDrift.toFixed(2)}
+              </div>
             </div>
-            <div className="card-body">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                {[
-                  { label: 'Login Time', expected: sampleTwinProfile.expectedLogin, actual: sampleTwinProfile.actualLogin, icon: '🕐' },
-                  { label: 'Records Accessed', expected: `${sampleTwinProfile.expectedRecords}/day`, actual: `${sampleTwinProfile.actualRecords}/day`, icon: '📊' },
-                  { label: 'Data Volume', expected: `${sampleTwinProfile.expectedDataVolume} MB`, actual: `${sampleTwinProfile.actualDataVolume} MB`, icon: '💾' },
-                  { label: 'Devices Used', expected: `${sampleTwinProfile.expectedDevices}`, actual: `${sampleTwinProfile.actualDevices}`, icon: '🖥️' },
-                  { label: 'Systems', expected: sampleTwinProfile.expectedSystems.join(', '), actual: sampleTwinProfile.actualSystems.join(', '), icon: '🔗' },
-                ].map((item, i) => (
-                  <div key={i} style={{
-                    display: 'grid', gridTemplateColumns: '110px 1fr 1fr',
-                    gap: 12, padding: '10px 12px', borderRadius: 'var(--radius-md)',
-                    background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-subtle)',
-                    alignItems: 'center',
-                  }}>
-                    <div className="flex items-center gap-8">
-                      <span>{item.icon}</span>
-                      <span className="text-xs font-semibold">{item.label}</span>
+
+            <div className="employee-genome-grid">
+              {genomeRows.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label} className={`employee-genome-row employee-genome-row--${item.severity}`}>
+                    <div className="employee-genome-metric">
+                      <span className="employee-genome-icon">
+                        <Icon size={15} />
+                      </span>
+                      <span>{item.label}</span>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted">Expected</div>
-                      <div className="text-sm text-mono" style={{ color: 'var(--cyan-400)' }}>{item.expected}</div>
+                    <div className="employee-genome-value">
+                      <span>Expected</span>
+                      <strong>{item.expected}</strong>
                     </div>
-                    <div>
-                      <div className="text-xs text-muted">Actual</div>
-                      <div className="text-sm text-mono" style={{ color: item.expected !== item.actual ? '#ef4444' : 'var(--trust-low)' }}>
-                        {item.actual}
-                      </div>
+                    <div className="employee-genome-value">
+                      <span>Actual</span>
+                      <strong>{item.actual}</strong>
                     </div>
+                    <div className="employee-genome-delta">{item.delta}</div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Privilege Decay Chart — Full Width */}
-          <div className="card mt-24">
-            <div className="card-header">
-              <div className="card-title">
-                <TrendingDown size={16} style={{ color: 'var(--cyan-500)' }} />
-                Privilege Decay Timeline
+          <div className="employee-timeline-card mt-24">
+            <div className="employee-timeline-header">
+              <div>
+                <div className="employee-detail-kicker">Live trust movement</div>
+                <h2>Privilege Decay Timeline</h2>
               </div>
-              {liveTimeline.length > 0 && (
-                <span className="text-xs text-mono" style={{ color: '#22c55e' }}>● Live data ({liveTimeline.length} days)</span>
-              )}
+              <div className="employee-timeline-chip">
+                <TrendingDown size={14} />
+                {liveTimeline.length > 0 ? `${liveTimeline.length} live days` : `Sim day ${sim.day}`}
+              </div>
             </div>
-            <div className="card-body" style={{ height: 280 }}>
+            <div className="employee-timeline-livebar">
+              <div>
+                <span>Current trust</span>
+                <strong>{latestDecay?.trustScore ?? trustScore}</strong>
+              </div>
+              <div>
+                <span>Last movement</span>
+                <strong className={trustDelta < 0 ? 'employee-timeline-drop' : ''}>
+                  {trustDelta > 0 ? '+' : ''}{trustDelta}
+                </strong>
+              </div>
+              <div>
+                <span>Window</span>
+                <strong>{decay.length} points</strong>
+              </div>
+            </div>
+            <div className="employee-timeline-body">
               <Line data={decayData} options={decayOptions} />
             </div>
           </div>
@@ -491,8 +587,6 @@ export default function EmployeeDetailPage(props: { params: Promise<{ id: string
               })}
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+    </AppShell>
   );
 }
