@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="dashboard/public/argus-logo.png" alt="Argus AI Logo" width="140" style="border-radius: 24px; margin-bottom: 15px;" />
   <h1 align="center">🔱 Argus AI</h1>
   <p align="center">
     <strong>Privacy-Preserving Digital Employee Twins for Continuous Insider Threat Detection in Banking</strong>

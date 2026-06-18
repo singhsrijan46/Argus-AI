@@ -190,17 +190,20 @@ a:hover { color: var(--accent-text); }
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: var(--text);
-  color: var(--bg);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
-.sidebar-brand:hover .sidebar-logo { transform: scale(1.05); }
+.sidebar-brand:hover .sidebar-logo {
+  transform: scale(1.05);
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
 
 .sidebar-title {
   font-size: 15px;

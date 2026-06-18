@@ -75,7 +75,9 @@ export default function Sidebar({ day, maxDay, live }: SidebarProps) {
     <aside className="sidebar">
       <div className="sidebar-header">
         <Link href="/" className="sidebar-brand" style={{ textDecoration: 'none' }}>
-          <div className="sidebar-logo">A</div>
+          <div className="sidebar-logo">
+            <img src="/argus-logo.png" alt="Argus AI Logo" style={{ width: '30px', height: '30px', objectFit: 'contain' }} />
+          </div>
           <div>
             <div className="sidebar-title">Argus</div>
             <div className="sidebar-subtitle">Threat monitoring</div>
