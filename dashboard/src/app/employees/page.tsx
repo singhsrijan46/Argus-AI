@@ -148,7 +148,7 @@ export default function EmployeesPage() {
                       <div className="flex items-center gap-4">Role <ArrowUpDown size={12} /></div>
                     </th>
                     <th>Branch</th>
-                    <th>Clearance</th>
+                    <th className="clearance-header">Clearance</th>
                     <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('trustScore')}>
                       <div className="flex items-center gap-4">Trust Score <ArrowUpDown size={12} /></div>
                     </th>
@@ -176,10 +176,22 @@ export default function EmployeesPage() {
                         <td>{emp.department}</td>
                         <td><span className="text-muted">{emp.role}</span></td>
                         <td><span className="text-muted">{emp.branch}</span></td>
-                        <td>
-                          <div className="flex items-center gap-4">
-                            {'●'.repeat(emp.clearanceLevel)}
-                            <span className="text-xs text-muted">{'○'.repeat(5 - emp.clearanceLevel)}</span>
+                        <td className="clearance-cell">
+                          <div
+                            className="clearance-indicator"
+                            title={`Level ${emp.clearanceLevel}/5`}
+                            aria-label={`Clearance level ${emp.clearanceLevel} out of 5`}
+                            data-tooltip={`Level ${emp.clearanceLevel}/5`}
+                          >
+                            <span className="clearance-label">L{emp.clearanceLevel}</span>
+                            <span className="clearance-segments" aria-hidden="true">
+                            {Array.from({ length: 5 }, (_, index) => (
+                              <span
+                                key={index}
+                                className={`clearance-segment ${index < emp.clearanceLevel ? 'clearance-segment--active' : ''}`}
+                              />
+                            ))}
+                            </span>
                           </div>
                         </td>
                         <td>
