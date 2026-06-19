@@ -1,0 +1,54 @@
+# Override .gitignore for Cloud Build — we NEED data and model files
+
+# Version control
+.git
+.gitignore
+
+# Virtual environments
+.venv
+venv
+ENV
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Python cache
+__pycache__
+*.py[cod]
+*.egg-info
+dist
+build
+
+# Node (dashboard has its own Dockerfile context)
+dashboard/node_modules
+dashboard/.next
+dashboard/out
+
+# Jupyter
+.ipynb_checkpoints
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+mlruns
+
+# Large raw CERT dataset (not needed for API)
+data/cert_r4.2
+data/lanl
+
+# Docs / notebooks (not needed at runtime)
+docs
+notebooks
+research
+*.pdf
+pitch_deck.html
+
+# Results (not needed)
+results

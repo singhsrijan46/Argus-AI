@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/argus-ai/argus-dashboard:latest'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://argus-backend-192403939373.asia-south1.run.app'
+      - '.'
+
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/argus-ai/argus-dashboard:latest'
+
+timeout: '600s'
+options:
+  machineType: 'E2_HIGHCPU_8'
