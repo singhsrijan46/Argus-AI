@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, ShieldAlert, BarChart3,
-  Activity, Eye, Clock,
+  Activity, Eye, Clock, BookOpen,
 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useTutorial } from '@/lib/TutorialContext';
 
 const navItems = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
@@ -70,6 +71,7 @@ function RealtimeClock() {
 export default function Sidebar({ day, maxDay, live }: SidebarProps) {
   const pathname = usePathname();
   const progress = maxDay && day ? Math.min(100, ((day - 5) / (maxDay - 5)) * 100) : 0;
+  const { startTutorial } = useTutorial();
 
   return (
     <aside className="sidebar">
@@ -113,6 +115,14 @@ export default function Sidebar({ day, maxDay, live }: SidebarProps) {
 
       <div className="sidebar-footer">
         <RealtimeClock />
+        <button
+          className="sidebar-tutorial-btn"
+          onClick={() => startTutorial(pathname)}
+          title="Start a guided tour of this page"
+        >
+          <BookOpen size={15} />
+          <span>Show Tutorial</span>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="text-xs text-muted" style={{ fontWeight: 500 }}>Appearance</span>
           <ThemeToggle />

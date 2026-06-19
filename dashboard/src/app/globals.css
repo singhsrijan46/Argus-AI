@@ -347,6 +347,34 @@ a:hover { color: var(--accent-text); }
   font-weight: 500;
 }
 
+/* ─── Tutorial Button ─── */
+.sidebar-tutorial-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-tutorial-btn:hover {
+  background: color-mix(in srgb, #2563eb 8%, var(--surface));
+  border-color: color-mix(in srgb, #2563eb 30%, var(--border));
+  color: #2563eb;
+}
+
+.sidebar-tutorial-btn:active {
+  transform: scale(0.98);
+}
+
 /* ─── Theme toggle ─── */
 
 .theme-toggle {
